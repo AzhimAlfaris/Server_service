@@ -3,6 +3,7 @@ package com.trs.microcontroller_service.dto;
 import java.time.LocalDateTime;
 
 public record SensorReadingResponse(Long id,
+                                    String email,
                                     String microcontrollerId,
                                     String sensorValue,
                                     String moisturePercent,

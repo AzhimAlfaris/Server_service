@@ -12,14 +12,6 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(DuplicateResourceException.class)
-    public ResponseEntity<Map<String, Object>> handleDuplicate(DuplicateResourceException exception) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("status", HttpStatus.CONFLICT.value());
-        body.put("message", exception.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
-    }
-
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(ResourceNotFoundException exception) {
         Map<String, Object> body = new LinkedHashMap<>();
@@ -33,6 +25,14 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("status", HttpStatus.BAD_REQUEST.value());
         body.put("message", "Request tidak valid");
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException exception) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", HttpStatus.BAD_REQUEST.value());
+        body.put("message", exception.getMessage());
         return ResponseEntity.badRequest().body(body);
     }
 

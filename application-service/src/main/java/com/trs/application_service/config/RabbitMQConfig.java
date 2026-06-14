@@ -1,23 +1,38 @@
 package com.trs.application_service.config;
 
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 @Configuration
 public class RabbitMQConfig {
 
     @Bean
-    public DirectExchange sensorExchange(@Value("${app.rabbitmq.exchange}") String exchangeName) {
+    public DirectExchange sensorExchange(@Value("${app.rabbitmq.exchange:sensor.exchange}") String exchangeName) {
         return new DirectExchange(exchangeName);
     }
 
     @Bean
-    public Queue sensorRequestQueue(@Value("${app.rabbitmq.queue}") String queueName) {
+    public Queue sensorRequestQueue(@Value("${app.rabbitmq.queue:sensor.request.queue}") String queueName) {
         return new Queue(queueName, true);
+    }
+
+    @Bean
+    public Queue sensorNotificationQueue(@Value("${app.rabbitmq.notification-queue:sensor.notification.queue}") String queueName) {
+        return new Queue(queueName, true);
+    }
+
+    @Bean
+    public Binding sensorNotificationBinding(@Qualifier("sensorNotificationQueue") Queue sensorNotificationQueue,
+                                             DirectExchange sensorExchange,
+                                             @Value("${app.rabbitmq.notification-routing-key:sensor.notification}") String routingKey) {
+        return BindingBuilder.bind(sensorNotificationQueue).to(sensorExchange).with(routingKey);
     }
 
     @Bean

@@ -1,24 +1,21 @@
 package com.trs.microcontroller_service.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.trs.microcontroller_service.config.RabbitMQConfig;
 import com.trs.microcontroller_service.dto.SensorQueryRequest;
 import com.trs.microcontroller_service.dto.SensorQueryResponse;
 import com.trs.microcontroller_service.dto.SensorReadingResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class SensorRequestListener {
 
     private final SensorReadingService sensorReadingService;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
-
-    public SensorRequestListener(SensorReadingService sensorReadingService) {
-        this.sensorReadingService = sensorReadingService;
-    }
 
     @RabbitListener(queues = "${app.rabbitmq.queue}")
     public String handleSensorRequest(String payload) {
