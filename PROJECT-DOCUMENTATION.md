@@ -1,9 +1,48 @@
 # Verdant Flow Service Server Documentation
 
-Dokumen ini menjelaskan arsitektur, alur data, konfigurasi database, RabbitMQ, email, dan contoh rencana Docker untuk dua service Spring Boot berikut:
+Dokumen ini menjelaskan arsitektur, alur data, konfigurasi database, RabbitMQ, email, dan konfigurasi Docker untuk dua service Spring Boot berikut:
 
 - `application-service`
 - `microcontroller-service`
+
+## 1.1 Panduan Praktis Singkat
+
+### Clone / Pull
+
+Repo GitHub:
+
+[`AzhimAlfaris/Service_server`](https://github.com/AzhimAlfaris/Service_server)
+
+```powershell
+git clone https://github.com/AzhimAlfaris/Service_server.git
+cd Service_server
+git pull origin main
+```
+
+### Testing Lokal
+
+```powershell
+cd microcontroller-service
+.\mvnw.cmd test
+```
+
+```powershell
+cd application-service
+.\mvnw.cmd test
+```
+
+### Jalankan Docker
+
+```powershell
+docker compose up -d --build
+```
+
+Jika ingin init database diulang:
+
+```powershell
+docker compose down -v
+docker compose up -d --build
+```
 
 ## 1. Gambaran Umum
 
@@ -294,6 +333,11 @@ Container RabbitMQ yang pernah Anda jalankan:
 ```bash
 docker run --detach --hostname my-rabbit --name some-rabbit --env RABBITMQ_DEFAULT_USER=user --env RABBITMQ_DEFAULT_PASS=password --publish 15672:15672 --publish 5672:5672 rabbitmq:management
 ```
+
+Catatan:
+
+- `some-rabbit` ini adalah setup lama untuk local run.
+- Kalau Anda sudah memakai `docker compose` project ini, RabbitMQ yang dipakai adalah `verdant-rabbitmq`, jadi `some-rabbit` tidak perlu aktif lagi.
 
 ### 9.3 Jalankan Service
 

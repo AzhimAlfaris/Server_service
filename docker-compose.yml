@@ -82,7 +82,7 @@ services:
       MAIL_HOST: smtp.gmail.com
       MAIL_PORT: 587
       MAIL_USERNAME: anasrudi048@gmail.com
-      MAIL_PASSWORD: phqz svmw vxyv xtyl
+      MAIL_PASSWORD: ISI_PASSWORD_APP_DI_SINI
       MAIL_FROM: anasrudi048@gmail.com
     ports:
       - "8082:8082"
