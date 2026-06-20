@@ -43,14 +43,28 @@ cd application-service
 ### Jalankan seluruh stack Docker
 
 ```powershell
-docker compose up -d --build
+cd microcontroller-service
+.\mvnw.cmd -DskipTests package
+
+cd ..\application-service
+.\mvnw.cmd -DskipTests package
+
+cd ..
+docker compose up -d
 ```
 
 Jika ingin reset database container:
 
 ```powershell
 docker compose down -v
-docker compose up -d --build
+cd microcontroller-service
+.\mvnw.cmd -DskipTests package
+
+cd ..\application-service
+.\mvnw.cmd -DskipTests package
+
+cd ..
+docker compose up -d
 ```
 
 ## 2. Gambaran Umum
@@ -65,6 +79,8 @@ Alur utamanya:
 4. `application-service` menerima event tersebut dan mengirim email ke alamat user pada data sensor.
 5. Saat aplikasi meminta data terbaru atau riwayat sensor, `application-service` mengirim request ke RabbitMQ dan meneruskan hasilnya ke caller.
 6. Seluruh log aplikasi dikirim ke Logstash, diteruskan ke Elasticsearch, dan ditampilkan di Kibana.
+
+Untuk alur Docker saat ini, file `.jar` dibangun terlebih dahulu di masing-masing service. Docker kemudian hanya menyalin JAR tersebut ke image runtime berbasis JRE, sehingga proses `docker compose up -d` tidak lagi melakukan compile Java di dalam container.
 
 ## 3. Arsitektur
 
@@ -150,6 +166,11 @@ Project saat ini sudah mencatat:
 - response sukses
 - error dan exception
 - event startup dan shutdown container
+
+Index log yang dipakai oleh Logstash saat ini:
+
+- `microcontroller-service-logs-YYYY.MM.dd`
+- `application-service-logs-YYYY.MM.dd`
 
 ## 6. Struktur Project
 
@@ -506,6 +527,8 @@ Semua container menggunakan network:
 - Di dalam container, `localhost` tidak dipakai untuk koneksi antarservice.
 - Gunakan nama service container seperti `verdant-mysql`, `rabbitmq`, dan `verdant-logstash`.
 - `docker-compose.yml` juga memasang healthcheck untuk MySQL dan RabbitMQ.
+- Dockerfile untuk kedua service Java sekarang menggunakan image runtime JRE dan menyalin file `.jar` dari folder `target/`.
+- Proses build Java dijalankan di luar Docker memakai Maven Wrapper.
 
 ## 13. Monitoring
 
@@ -533,6 +556,23 @@ http://localhost:5601
 ```
 
 Log aplikasi yang dikirim oleh kedua service akan muncul di Kibana setelah masuk ke Elasticsearch melalui Logstash.
+
+#### Index pattern Kibana
+
+Buat dua data view atau index pattern berikut:
+
+- `microcontroller-service-logs-*`
+- `application-service-logs-*`
+
+Langkah singkat:
+
+1. Buka Kibana di `http://localhost:5601`.
+2. Masuk ke menu **Stack Management**.
+3. Pilih **Index Patterns** atau **Data Views**.
+4. Buat data view `microcontroller-service-logs-*`.
+5. Buat data view `application-service-logs-*`.
+6. Gunakan field waktu `@timestamp` jika diminta.
+7. Simpan keduanya.
 
 ### 13.4 Actuator
 

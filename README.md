@@ -61,9 +61,42 @@ GET http://localhost:8082/api/sensor-data/history/ESP32-001?limit=10
 
 ## Jalankan dengan Docker
 
+Pastikan file `.jar` sudah dibuat untuk kedua service:
+
 ```powershell
-docker compose up -d --build
+cd microcontroller-service
+.\mvnw.cmd -DskipTests package
+
+cd ..\application-service
+.\mvnw.cmd -DskipTests package
+
+cd ..
+docker compose up -d
 ```
+
+Setelah file `.jar` sudah ada di masing-masing folder `target/`, `docker compose up -d` hanya akan membangun image ringan dari JRE dan menyalin artefak `.jar` yang sudah jadi.
+
+### Setup Kibana Index Pattern
+
+Setelah stack Docker berjalan dan Logstash mulai menerima log, buat index pattern berikut di Kibana:
+
+- `microcontroller-service-logs-*`
+- `application-service-logs-*`
+
+Langkahnya:
+
+1. Buka Kibana di `http://localhost:5601`.
+2. Masuk ke menu **Stack Management**.
+3. Pilih **Index Patterns** atau **Data Views**.
+4. Buat data view untuk `microcontroller-service-logs-*`.
+5. Buat data view untuk `application-service-logs-*`.
+6. Pilih field waktu `@timestamp` jika Kibana meminta time field.
+7. Simpan keduanya.
+
+Index pattern ini sesuai dengan konfigurasi Logstash yang menulis log ke index berbentuk:
+
+- `microcontroller-service-logs-YYYY.MM.dd`
+- `application-service-logs-YYYY.MM.dd`
 
 ### Port yang Dipakai
 
@@ -81,6 +114,7 @@ docker compose up -d --build
 - `prometheus.yml` sudah diarahkan ke:
   - `microcontroller-service:8081/actuator/prometheus`
   - `application-service:8082/actuator/prometheus`
+- Log aplikasi dikirim ke Logstash dan tersedia di Kibana setelah index pattern dibuat.
 
 ## Catatan
 
