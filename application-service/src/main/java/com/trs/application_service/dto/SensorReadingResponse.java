@@ -1,15 +1,14 @@
 package com.trs.application_service.dto;
 
-import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record SensorReadingResponse(Long id,
+                                    String address,
                                     String email,
-                                    String microcontrollerId,
-                                    String sensorValue,
-                                    String moisturePercent,
-                                    String soilCondition,
-                                    String action,
-                                    String pumpDuration,
-                                    String timestampSensor,
-                                    LocalDateTime createdAt) {
+                                    LocalDateTime createdAt,
+                                    List<PotReadingResponse> pots) {
 }

@@ -1,16 +1,16 @@
 services:
   verdant-mysql:
-    image: mysql:8.4
+    image: mysql:8.0
     container_name: verdant-mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: microcontroller_service_db
+      MYSQL_DATABASE: microcontroller-service-db
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./init/microcontroller_service_db.sql:/docker-entrypoint-initdb.d/01-microcontroller_service_db.sql:ro
+      - ./init/microcontroller-service-db.sql:/docker-entrypoint-initdb.d/01-microcontroller-service-db.sql:ro
     networks:
       - verdant-network
     healthcheck:
@@ -54,7 +54,7 @@ services:
     environment:
       DB_HOST: verdant-mysql
       DB_PORT: 3306
-      DB_NAME_MICRO: microcontroller_service_db
+      DB_NAME_MICRO: microcontroller-service-db
       DB_USERNAME: root
       DB_PASSWORD: root
       RABBITMQ_HOST: rabbitmq

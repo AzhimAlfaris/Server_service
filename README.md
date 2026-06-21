@@ -5,7 +5,7 @@ Backend microservices Spring Boot untuk monitoring sensor ESP32, dengan MySQL, R
 ## Ringkasan
 
 - `microcontroller-service` menerima data sensor, menyimpannya ke MySQL, lalu mem-publish event notifikasi ke RabbitMQ.
-- `application-service` mengambil data sensor dari `microcontroller-service` saat aplikasi meminta data.
+- `application-service` mengambil data sensor dari `microcontroller-service` berdasarkan email pengguna saat aplikasi meminta data.
 - `application-service` juga menerima event notifikasi untuk mengirim email ke user.
 - `application-service` tidak memakai database sendiri.
 - `docker-compose.yml` terbaru juga menjalankan `prometheus` dan `grafana`.
@@ -24,7 +24,7 @@ Dokumentasi teknis lengkap ada di [`PROJECT-DOCUMENTATION.md`](./PROJECT-DOCUMEN
 
 - `microcontroller-service/`
 - `application-service/`
-- `init/microcontroller_service_db.sql`
+- `init/microcontroller-service-db.sql`
 - `docker-compose.yml`
 - `prometheus.yml`
 
@@ -48,15 +48,15 @@ cd application-service
 
 ```http
 POST http://localhost:8081/api/sensor-readings
-GET http://localhost:8081/api/sensor-readings/latest/ESP32-001
-GET http://localhost:8081/api/sensor-readings/history/ESP32-001?limit=10
+GET http://localhost:8081/api/sensor-readings/latest/decalyps@gmail.com
+GET http://localhost:8081/api/sensor-readings/history/decalyps@gmail.com?limit=5
 ```
 
 ### application-service
 
 ```http
-GET http://localhost:8082/api/sensor-data/latest/ESP32-001
-GET http://localhost:8082/api/sensor-data/history/ESP32-001?limit=10
+GET http://localhost:8082/api/sensor-data/latest/decalyps@gmail.com
+GET http://localhost:8082/api/sensor-data/history/decalyps@gmail.com?limit=5
 ```
 
 ## Jalankan dengan Docker
@@ -120,4 +120,4 @@ Index pattern ini sesuai dengan konfigurasi Logstash yang menulis log ke index b
 
 - `application-service` tidak memiliki database sendiri.
 - `MAIL_PASSWORD` harus diisi dengan Gmail App Password.
-- `init/microcontroller_service_db.sql` dipakai untuk inisialisasi tabel `sensor_readings`.
+- `init/microcontroller-service-db.sql` dipakai untuk inisialisasi tabel `sensor_readings` dan `pot_details`.

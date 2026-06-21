@@ -5,14 +5,19 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.FetchType;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "sensor_readings")
@@ -26,46 +31,28 @@ public class SensorReading {
     @EqualsAndHashCode.Include
     private Long id;
 
-    @Column(name = "microcontroller_id", nullable = false, length = 100)
-    private String microcontrollerId;
+    @Column(name = "address", nullable = false, length = 100)
+    private String address;
 
     @Column(name = "email", nullable = false, length = 255)
     private String email;
 
-    @Column(name = "sensor_value", nullable = false, length = 255)
-    private String sensorValue;
-
-    @Column(name = "moisture_percent", nullable = false, length = 255)
-    private String moisturePercent;
-
-    @Column(name = "soil_condition", nullable = false, length = 255)
-    private String soilCondition;
-
-    @Column(name = "action", nullable = false, length = 255)
-    private String action;
-
-    @Column(name = "pump_duration", nullable = false, length = 255)
-    private String pumpDuration;
-
-    @Column(name = "timestamp_sensor", nullable = false, length = 255)
-    private String timestampSensor;
+    @OneToMany(mappedBy = "sensorReading", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<PotDetail> potDetails = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    public static SensorReading create(String microcontrollerId, String sensorValue, String moisturePercent,
-                                       String soilCondition, String action, String pumpDuration, String email,
-                                       String timestampSensor) {
+    public static SensorReading create(String address, String email) {
         SensorReading sensorReading = new SensorReading();
-        sensorReading.microcontrollerId = microcontrollerId;
+        sensorReading.address = address;
         sensorReading.email = email;
-        sensorReading.sensorValue = sensorValue;
-        sensorReading.moisturePercent = moisturePercent;
-        sensorReading.soilCondition = soilCondition;
-        sensorReading.action = action;
-        sensorReading.pumpDuration = pumpDuration;
-        sensorReading.timestampSensor = timestampSensor;
         return sensorReading;
+    }
+
+    public void addPotDetail(PotDetail potDetail) {
+        potDetails.add(potDetail);
+        potDetail.setSensorReading(this);
     }
 
     @PrePersist

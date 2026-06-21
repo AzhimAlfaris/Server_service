@@ -1,5 +1,5 @@
 *
+!pom.xml
+!src/
+!src/**
 !Dockerfile
-!target/
-target/*
-!target/*.jar

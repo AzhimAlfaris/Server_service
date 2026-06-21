@@ -22,18 +22,19 @@ public class SensorDataClientService {
     @Value("${app.rabbitmq.routing-key}")
     private String routingKey;
 
-    public SensorQueryResponse getLatestSensorData(String microcontrollerId) {
-        return requestSensorData(microcontrollerId, "LATEST", 1);
+    public SensorQueryResponse getLatestSensorData(String email) {
+        return requestSensorData(email, "LATEST", 1);
     }
 
-    public SensorQueryResponse getSensorHistory(String microcontrollerId, int limit) {
-        return requestSensorData(microcontrollerId, "HISTORY", limit);
+    public SensorQueryResponse getSensorHistory(String email, int limit) {
+        return requestSensorData(email, "HISTORY", limit);
     }
 
-    private SensorQueryResponse requestSensorData(String microcontrollerId, String requestType, int limit) {
+    private SensorQueryResponse requestSensorData(String email, String requestType, int limit) {
         try {
-            log.info("Sending sensor query request type={} microcontrollerId={} limit={}", requestType, microcontrollerId, limit);
-            String requestJson = objectMapper.writeValueAsString(new SensorQueryRequest(microcontrollerId, requestType, limit));
+            String normalizedEmail = email == null ? null : email.trim().toLowerCase();
+            log.info("Sending sensor query request type={} email={} limit={}", requestType, normalizedEmail, limit);
+            String requestJson = objectMapper.writeValueAsString(new SensorQueryRequest(normalizedEmail, requestType, limit));
             Object rawResponse = rabbitTemplate.convertSendAndReceive(exchangeName, routingKey, requestJson);
 
             if (rawResponse == null) {
@@ -44,10 +45,10 @@ public class SensorDataClientService {
             if (!"success".equalsIgnoreCase(response.status())) {
                 throw new ResourceNotFoundException(response.message());
             }
-            log.info("Received sensor query response type={} microcontrollerId={} status={}", requestType, microcontrollerId, response.status());
+            log.info("Received sensor query response type={} email={} status={}", requestType, normalizedEmail, response.status());
             return response;
         } catch (Exception exception) {
-            log.error("Failed to request sensor data type={} microcontrollerId={} limit={}", requestType, microcontrollerId, limit, exception);
+            log.error("Failed to request sensor data type={} email={} limit={}", requestType, email, limit, exception);
             throw new RuntimeException("Gagal mengambil data sensor: " + exception.getMessage(), exception);
         }
     }

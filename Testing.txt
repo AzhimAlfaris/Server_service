@@ -3,28 +3,58 @@ Post:
 URL: http://localhost:8081/api/sensor-readings
 Contoh data:
 {
-  "microcontrollerId": "ESP32-001",
+  "address": "24:0A:C4:82:7D:64",
   "email": "decalyps@gmail.com",
-  "sensorValue": "742",
-  "moisturePercent": "68",
-  "soilCondition": "Normal",
-  "action": "Pump ON",
-  "pumpDuration": "5 seconds",
-  "timestampSensor": "2026-06-14 17:30:00"
+  "pots": [
+    {
+      "potIndex": 1,
+      "sensorValue": "742",
+      "moisturePercent": "68",
+      "soilCondition": "Normal",
+      "action": "Pump ON",
+      "pumpDuration": "5 seconds",
+      "timestampSensor": "2026-06-14 17:30:00"
+    },
+    {
+      "potIndex": 2,
+      "sensorValue": "210",
+      "moisturePercent": "20",
+      "soilCondition": "Kering",
+      "action": "Pump ON",
+      "pumpDuration": "10 seconds",
+      "timestampSensor": "2026-06-14 17:30:00"
+    },
+    {
+      "potIndex": 3,
+      "sensorValue": "800",
+      "moisturePercent": "85",
+      "soilCondition": "Basah",
+      "action": "Pump OFF",
+      "pumpDuration": "0 seconds",
+      "timestampSensor": "2026-06-14 17:30:00"
+    }
+  ]
 }
 Get:
-URL: http://localhost:8081/api/sensor-readings/latest/ESP32-001
-     http://localhost:8081/api/sensor-readings/history/ESP32-001?limit=10
+URL: http://localhost:8081/api/sensor-readings/latest/decalyps@gmail.com
+     http://localhost:8081/api/sensor-readings/history/decalyps@gmail.com?limit=5
 
 application-service:
 Get:
-URL: http://localhost:8082/api/sensor-data/latest/ESP32-001
-     http://localhost:8082/api/sensor-data/history/ESP32-001?limit=10
+URL: http://localhost:8082/api/sensor-data/latest/decalyps@gmail.com
+     http://localhost:8082/api/sensor-data/history/decalyps@gmail.com?limit=5
 
 monitoring:
 URL: http://localhost:8081/actuator/health
 URL: http://localhost:8082/actuator/health
 URL: http://localhost:8081/actuator/prometheus
 URL: http://localhost:8082/actuator/prometheus
-URL: http://localhost:9090
-URL: http://localhost:3000
+
+Grafana GUI
+http://localhost:3000
+
+Kibana GUI
+http://localhost:5601
+
+Prometheus GUI
+http://localhost:9090

@@ -1,11 +1,8 @@
 package com.trs.microcontroller_service.dto;
 
-public record SensorReadingRequest(String microcontrollerId,
-                                  String email,
-                                  String sensorValue,
-                                  String moisturePercent,
-                                  String soilCondition,
-                                  String action,
-                                  String pumpDuration,
-                                  String timestampSensor) {
+import java.util.List;
+
+public record SensorReadingRequest(String address,
+                                   String email,
+                                   List<PotReadingRequest> pots) {
 }

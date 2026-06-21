@@ -19,16 +19,16 @@ public class SensorDataController {
 
     private final SensorDataClientService sensorDataClientService;
 
-    @GetMapping("/latest/{microcontrollerId}")
-    public ResponseEntity<SensorQueryResponse> getLatest(@PathVariable String microcontrollerId) {
-        log.info("Request latest sensor data for microcontrollerId={}", microcontrollerId);
-        return ResponseEntity.ok(sensorDataClientService.getLatestSensorData(microcontrollerId));
+    @GetMapping("/latest/{email}")
+    public ResponseEntity<SensorQueryResponse> getLatest(@PathVariable String email) {
+        log.info("Request latest sensor data for email={}", email);
+        return ResponseEntity.ok(sensorDataClientService.getLatestSensorData(email));
     }
 
-    @GetMapping("/history/{microcontrollerId}")
-    public ResponseEntity<SensorQueryResponse> getHistory(@PathVariable String microcontrollerId,
-                                                          @RequestParam(defaultValue = "10") int limit) {
-        log.info("Request sensor history for microcontrollerId={} limit={}", microcontrollerId, limit);
-        return ResponseEntity.ok(sensorDataClientService.getSensorHistory(microcontrollerId, limit));
+    @GetMapping("/history/{email}")
+    public ResponseEntity<SensorQueryResponse> getHistory(@PathVariable String email,
+                                                          @RequestParam(defaultValue = "5") int limit) {
+        log.info("Request sensor history for email={} limit={}", email, limit);
+        return ResponseEntity.ok(sensorDataClientService.getSensorHistory(email, limit));
     }
 }

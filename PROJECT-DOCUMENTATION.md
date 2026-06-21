@@ -10,7 +10,7 @@ Project ini terdiri dari dua service utama:
 Selain itu, repository ini juga memuat:
 
 - `docker-compose.yml` untuk menjalankan seluruh stack
-- `init/microcontroller_service_db.sql` untuk inisialisasi database
+- `init/microcontroller-service-db.sql` untuk inisialisasi database
 - `prometheus.yml` untuk scraping metrics
 - `elk-stack/` untuk konfigurasi Elasticsearch, Logstash, dan Kibana
 
@@ -257,7 +257,7 @@ Nilai penting yang dipakai:
 
 - `spring.application.name=microcontroller-service`
 - `server.port=8081`
-- `spring.datasource.url=jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME_MICRO:microcontroller_service_db}`
+- `spring.datasource.url=jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME_MICRO:microcontroller-service-db}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Jakarta`
 - `spring.datasource.username=${DB_USERNAME:root}`
 - `spring.datasource.password=${DB_PASSWORD:root}`
 - `spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver`
@@ -321,45 +321,40 @@ Nilai penting yang dipakai:
 
 ## 10. Database
 
-### 10.1 Database `microcontroller_service_db`
+### 10.1 Database `microcontroller-service-db`
 
 Database hanya dipakai oleh `microcontroller-service`.
 
-Tabel utama:
+Struktur terbaru memakai relasi one-to-many:
 
 - `sensor_readings`
-
-Kolom inti:
-
-- `id`
-- `microcontroller_id`
-- `email`
-- `sensor_value`
-- `moisture_percent`
-- `soil_condition`
-- `action`
-- `pump_duration`
-- `timestamp_sensor`
-- `created_at`
+- `pot_details`
 
 ### 10.2 Skema SQL inti
 
 ```sql
 CREATE TABLE sensor_readings (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    action VARCHAR(255) NOT NULL,
-    created_at DATETIME(6) NOT NULL,
-    microcontroller_id VARCHAR(100) NOT NULL,
-    moisture_percent VARCHAR(255) NOT NULL,
-    pump_duration VARCHAR(255) NOT NULL,
+    address VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    created_at DATETIME(6) NOT NULL
+);
+
+CREATE TABLE pot_details (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    reading_id BIGINT NOT NULL,
+    pot_index INT NOT NULL,
     sensor_value VARCHAR(255) NOT NULL,
+    moisture_percent VARCHAR(255) NOT NULL,
     soil_condition VARCHAR(255) NOT NULL,
+    action VARCHAR(255) NOT NULL,
+    pump_duration VARCHAR(255) NOT NULL,
     timestamp_sensor VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL
+    FOREIGN KEY (reading_id) REFERENCES sensor_readings(id) ON DELETE CASCADE
 );
 ```
 
-File `init/microcontroller_service_db.sql` digunakan untuk inisialisasi tabel saat container MySQL pertama kali dibuat.
+File `init/microcontroller-service-db.sql` digunakan untuk inisialisasi tabel saat container MySQL pertama kali dibuat.
 
 ### 10.3 `application-service`
 
@@ -383,14 +378,37 @@ Contoh request:
 
 ```json
 {
-  "microcontrollerId": "ESP32-001",
+  "address": "24:0A:C4:82:7D:64",
   "email": "user@example.com",
-  "sensorValue": "742",
-  "moisturePercent": "68",
-  "soilCondition": "Normal",
-  "action": "Pump ON",
-  "pumpDuration": "5 seconds",
-  "timestampSensor": "2026-06-14 17:30:00"
+  "pots": [
+    {
+      "potIndex": 1,
+      "sensorValue": "742",
+      "moisturePercent": "68",
+      "soilCondition": "Normal",
+      "action": "Pump ON",
+      "pumpDuration": "5 seconds",
+      "timestampSensor": "2026-06-14 17:30:00"
+    },
+    {
+      "potIndex": 2,
+      "sensorValue": "210",
+      "moisturePercent": "20",
+      "soilCondition": "Kering",
+      "action": "Pump ON",
+      "pumpDuration": "10 seconds",
+      "timestampSensor": "2026-06-14 17:30:00"
+    },
+    {
+      "potIndex": 3,
+      "sensorValue": "800",
+      "moisturePercent": "85",
+      "soilCondition": "Basah",
+      "action": "Pump OFF",
+      "pumpDuration": "0 seconds",
+      "timestampSensor": "2026-06-14 17:30:00"
+    }
+  ]
 }
 ```
 
@@ -399,23 +417,23 @@ Response:
 - HTTP `201 Created`
 - body `SensorReadingResponse`
 
-### GET `/api/sensor-readings/latest/{microcontrollerId}`
+### GET `/api/sensor-readings/latest/{email}`
 
-Mengambil data terbaru untuk satu `microcontrollerId`.
-
-Response:
-
-- HTTP `200 OK`
-- body `SensorReadingResponse`
-
-### GET `/api/sensor-readings/history/{microcontrollerId}?limit=10`
-
-Mengambil riwayat data sensor.
+Mengambil data terbaru untuk semua perangkat yang dimiliki email tersebut.
 
 Response:
 
 - HTTP `200 OK`
-- body `List<SensorReadingResponse>`
+- body `SensorQueryResponse`
+
+### GET `/api/sensor-readings/history/{email}?limit=5`
+
+Mengambil 5 `pot_details` terbaru untuk setiap `potIndex` di setiap perangkat yang dimiliki email tersebut.
+
+Response:
+
+- HTTP `200 OK`
+- body `SensorQueryResponse`
 
 ## 11.2 `application-service`
 
@@ -425,7 +443,7 @@ Base URL:
 http://localhost:8082
 ```
 
-### GET `/api/sensor-data/latest/{microcontrollerId}`
+### GET `/api/sensor-data/latest/{email}`
 
 Meminta data terbaru dari `microcontroller-service`.
 
@@ -434,13 +452,22 @@ Response body:
 ```json
 {
   "status": "success",
-  "message": "Data sensor terbaru berhasil diambil",
-  "microcontrollerId": "ESP32-001",
-  "readings": []
+  "message": "Data sensor terbaru dari semua perangkat berhasil diambil",
+  "email": "user@gmail.com",
+  "devices": [
+    {
+      "address": "24:0A:C4:82:7D:64",
+      "pots": [
+        { "potIndex": 1, "moisturePercent": "68", "soilCondition": "Normal" },
+        { "potIndex": 2, "moisturePercent": "20", "soilCondition": "Kering" },
+        { "potIndex": 3, "moisturePercent": "85", "soilCondition": "Basah" }
+      ]
+    }
+  ]
 }
 ```
 
-### GET `/api/sensor-data/history/{microcontrollerId}?limit=10`
+### GET `/api/sensor-data/history/{email}?limit=5`
 
 Meminta riwayat data sensor dari `microcontroller-service`.
 
@@ -449,16 +476,16 @@ Response body:
 ```json
 {
   "status": "success",
-  "message": "Riwayat data sensor berhasil diambil",
-  "microcontrollerId": "ESP32-001",
-  "readings": []
+  "message": "Riwayat data sensor dari semua perangkat berhasil diambil",
+  "email": "user@gmail.com",
+  "devices": []
 }
 ```
 
 Catatan:
 
-- `latest` mengembalikan 1 item di `readings`.
-- `history` mengembalikan daftar data hingga batas `limit`.
+- `latest` mengembalikan daftar `devices` dengan 1 snapshot terbaru untuk tiap address.
+- `history` mengembalikan daftar `devices` dengan hingga `limit` data terbaru per `potIndex` di tiap address.
 - Jika data tidak ditemukan, service mengembalikan error dengan status not found.
 
 ## 12. Docker Compose Terbaru
@@ -500,7 +527,7 @@ Semua container menggunakan network:
 
 - `DB_HOST=verdant-mysql`
 - `DB_PORT=3306`
-- `DB_NAME_MICRO=microcontroller_service_db`
+- `DB_NAME_MICRO=microcontroller-service-db`
 - `DB_USERNAME=root`
 - `DB_PASSWORD=root`
 - `RABBITMQ_HOST=rabbitmq`

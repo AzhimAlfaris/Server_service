@@ -5,6 +5,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record SensorQueryResponse(String status, String message, String email,
-                                  List<SensorDeviceResponse> devices) {
+public record SensorDeviceResponse(String address,
+                                   List<PotReadingResponse> pots) {
 }

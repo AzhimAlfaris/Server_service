@@ -1,4 +1,4 @@
 package com.trs.application_service.dto;
 
-public record SensorQueryRequest(String microcontrollerId, String requestType, Integer limit) {
+public record SensorQueryRequest(String email, String requestType, Integer limit) {
 }

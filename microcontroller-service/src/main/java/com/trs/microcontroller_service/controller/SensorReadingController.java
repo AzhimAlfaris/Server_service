@@ -2,6 +2,7 @@ package com.trs.microcontroller_service.controller;
 
 import com.trs.microcontroller_service.dto.SensorReadingRequest;
 import com.trs.microcontroller_service.dto.SensorReadingResponse;
+import com.trs.microcontroller_service.dto.SensorQueryResponse;
 import com.trs.microcontroller_service.service.SensorReadingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,8 +16,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/sensor-readings")
 @Slf4j
@@ -27,21 +26,21 @@ public class SensorReadingController {
 
     @PostMapping
     public ResponseEntity<SensorReadingResponse> save(@RequestBody SensorReadingRequest request) {
-        log.info("Request save sensor reading microcontrollerId={}", request.microcontrollerId());
+        log.info("Request save sensor reading address={}", request.address());
         return ResponseEntity.status(HttpStatus.CREATED).body(sensorReadingService.save(request));
     }
 
-    @GetMapping("/latest/{microcontrollerId}")
-    public ResponseEntity<SensorReadingResponse> getLatest(@PathVariable String microcontrollerId) {
-        log.info("Request latest sensor reading for microcontrollerId={}", microcontrollerId);
-        return ResponseEntity.ok(sensorReadingService.getLatestByMicrocontrollerId(microcontrollerId));
+    @GetMapping("/latest/{email}")
+    public ResponseEntity<SensorQueryResponse> getLatest(@PathVariable String email) {
+        log.info("Request latest sensor reading for email={}", email);
+        return ResponseEntity.ok(sensorReadingService.getLatestByEmail(email));
     }
 
-    @GetMapping("/history/{microcontrollerId}")
-    public ResponseEntity<List<SensorReadingResponse>> getHistory(
-            @PathVariable String microcontrollerId,
-            @RequestParam(defaultValue = "10") int limit) {
-        log.info("Request sensor reading history for microcontrollerId={} limit={}", microcontrollerId, limit);
-        return ResponseEntity.ok(sensorReadingService.getHistoryByMicrocontrollerId(microcontrollerId, limit));
+    @GetMapping("/history/{email}")
+    public ResponseEntity<SensorQueryResponse> getHistory(
+            @PathVariable String email,
+            @RequestParam(defaultValue = "5") int limit) {
+        log.info("Request sensor reading history for email={} limit={}", email, limit);
+        return ResponseEntity.ok(sensorReadingService.getHistoryByEmail(email, limit));
     }
 }

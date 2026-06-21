@@ -26,31 +26,47 @@ public class SensorEmailService {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromEmail);
         message.setTo(reading.email());
-        message.setSubject("Sensor update dari " + reading.microcontrollerId());
-        message.setText("""
+        message.setSubject("Sensor update dari " + reading.address());
+
+        StringBuilder body = new StringBuilder();
+        body.append("""
                 Halo,
 
                 Berikut data sensor terbaru dari perangkat %s:
                 - Email tujuan: %s
-                - Sensor value: %s
-                - Moisture percent: %s
-                - Soil condition: %s
-                - Action: %s
-                - Pump duration: %s
-                - Timestamp sensor: %s
                 - Created at: %s
+                """.formatted(
+                reading.address(),
+                reading.email(),
+                reading.createdAt()));
+
+        if (reading.pots() != null && !reading.pots().isEmpty()) {
+            body.append("\nRincian pot:\n");
+            for (var pot : reading.pots()) {
+                body.append("""
+                        - Pot %s
+                          Sensor value: %s
+                          Moisture percent: %s
+                          Soil condition: %s
+                          Action: %s
+                          Pump duration: %s
+                          Timestamp sensor: %s
+                        """.formatted(
+                        pot.potIndex(),
+                        pot.sensorValue(),
+                        pot.moisturePercent(),
+                        pot.soilCondition(),
+                        pot.action(),
+                        pot.pumpDuration(),
+                        pot.timestampSensor()));
+            }
+        }
+
+        body.append("""
 
                 Pesan ini dikirim otomatis dari microcontroller-service.
-                """.formatted(
-                reading.microcontrollerId(),
-                reading.email(),
-                reading.sensorValue(),
-                reading.moisturePercent(),
-                reading.soilCondition(),
-                reading.action(),
-                reading.pumpDuration(),
-                reading.timestampSensor(),
-                reading.createdAt()));
+                """);
+        message.setText(body.toString());
 
         mailSender.send(message);
     }
