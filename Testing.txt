@@ -39,10 +39,43 @@ Get:
 URL: http://localhost:8081/api/sensor-readings/latest/decalyps@gmail.com
      http://localhost:8081/api/sensor-readings/history/decalyps@gmail.com?limit=5
 
+
+
+
+
 application-service:
 Get:
-URL: http://localhost:8082/api/sensor-data/latest/decalyps@gmail.com
-     http://localhost:8082/api/sensor-data/history/decalyps@gmail.com?limit=5
+URL: http://localhost:8082/api/sensor-data/latest (Authorization: Bearer <token>)
+     http://localhost:8082/api/sensor-data/history?limit=5 (Authorization: Bearer <token>)
+
+
+
+
+
+user-service:
+Post:
+URL: http://localhost:8083/api/users
+Get:
+URL: http://localhost:8083/api/users/exists?email=decalyps@gmail.com
+     http://localhost:8083/api/users/decalyps@gmail.com
+
+
+
+
+
+security-service:
+Post:
+URL: http://localhost:8084/auth/register
+     http://localhost:8084/auth/login
+Contoh data:
+{
+  "email": "decalyps@gmail.com",
+  "password": "password123"
+}
+
+
+
+
 
 monitoring:
 URL: http://localhost:8081/actuator/health

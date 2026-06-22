@@ -6,6 +6,7 @@ import com.trs.microcontroller_service.dto.SensorQueryResponse;
 import com.trs.microcontroller_service.service.SensorReadingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,7 +26,7 @@ public class SensorReadingController {
     private final SensorReadingService sensorReadingService;
 
     @PostMapping
-    public ResponseEntity<SensorReadingResponse> save(@RequestBody SensorReadingRequest request) {
+    public ResponseEntity<SensorReadingResponse> save(@Valid @RequestBody SensorReadingRequest request) {
         log.info("Request save sensor reading address={}", request.address());
         return ResponseEntity.status(HttpStatus.CREATED).body(sensorReadingService.save(request));
     }

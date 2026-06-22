@@ -22,10 +22,11 @@ public class AuthService {
     private final JwtService jwtService;
 
     public String register(AuthRequest request) {
+        String normalizedEmail = normalizeEmail(request.getEmail());
         String hashedPassword = passwordEncoder.encode(request.getPassword());
         
         UserRequest userRequest = new UserRequest(
-            request.getEmail(),
+            normalizedEmail,
             hashedPassword
         );
 
@@ -34,7 +35,8 @@ public class AuthService {
     }
 
     public AuthResponse login(AuthRequest request) {
-        UserResponse user = userServiceClient.getUserByEmail(request.getEmail());
+        String normalizedEmail = normalizeEmail(request.getEmail());
+        UserResponse user = userServiceClient.getUserByEmail(normalizedEmail);
 
         if(user == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
@@ -51,6 +53,10 @@ public class AuthService {
 
         String token = jwtService.generateToken(user.getEmail());
         return new AuthResponse(token, "Bearer", user.getEmail());
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase();
     }
 
 }

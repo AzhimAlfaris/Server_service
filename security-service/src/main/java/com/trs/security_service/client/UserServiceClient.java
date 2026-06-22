@@ -33,7 +33,7 @@ public class UserServiceClient {
         return userServicWebClient.get()
                 .uri("/api/users/{email}", email)
                 .retrieve()
-                .onStatus(status -> status.value() == 409,
+                .onStatus(status -> status.value() == 404,
                         response -> response.bodyToMono(String.class).map(
                                 body -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + email)))
                 .bodyToMono(UserResponse.class).block();

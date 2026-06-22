@@ -10,6 +10,7 @@ import com.trs.microcontroller_service.exception.ResourceNotFoundException;
 import com.trs.microcontroller_service.model.PotDetail;
 import com.trs.microcontroller_service.model.SensorReading;
 import com.trs.microcontroller_service.repository.SensorReadingRepository;
+import com.trs.microcontroller_service.client.UserServiceClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -17,6 +18,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Comparator;
@@ -33,6 +36,7 @@ public class SensorReadingService {
 
     private final SensorReadingRepository sensorReadingRepository;
     private final RabbitTemplate rabbitTemplate;
+    private final UserServiceClient userServiceClient;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @Value("${app.rabbitmq.exchange:sensor.exchange}")
@@ -54,6 +58,10 @@ public class SensorReadingService {
         }
         if (request.pots() == null || request.pots().isEmpty()) {
             throw new IllegalArgumentException("Minimal satu pot harus dikirim");
+        }
+
+        if (!userServiceClient.userExists(email)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Email " + email + " tidak terdaftar di user-service");
         }
 
         log.info("Saving sensor reading address={} pots={}", address, request.pots().size());
