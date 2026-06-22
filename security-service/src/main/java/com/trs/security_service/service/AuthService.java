@@ -8,6 +8,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.trs.security_service.client.UserServiceClient;
 import com.trs.security_service.data.AuthRequest;
 import com.trs.security_service.data.AuthResponse;
+import com.trs.security_service.data.PasswordResetRequest;
 import com.trs.security_service.data.UserRequest;
 import com.trs.security_service.data.UserResponse;
 
@@ -53,6 +54,27 @@ public class AuthService {
 
         String token = jwtService.generateToken(user.getEmail());
         return new AuthResponse(token, "Bearer", user.getEmail());
+    }
+
+    public boolean emailExists(String email) {
+        return userServiceClient.emailExists(normalizeEmail(email));
+    }
+
+    public String resetPassword(PasswordResetRequest request) {
+        String normalizedEmail = normalizeEmail(request.getEmail());
+
+        if (!request.getPassword().equals(request.getPasswordAgain())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password dan passwordAgain harus sama");
+        }
+
+        if (!userServiceClient.emailExists(normalizedEmail)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        String hashedPassword = passwordEncoder.encode(request.getPassword());
+        UserRequest userRequest = new UserRequest(normalizedEmail, hashedPassword);
+        userServiceClient.updatePassword(userRequest);
+        return "Password berhasil direset";
     }
 
     private String normalizeEmail(String email) {

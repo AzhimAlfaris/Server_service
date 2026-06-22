@@ -39,4 +39,29 @@ public class UserServiceClient {
                 .bodyToMono(UserResponse.class).block();
     }
 
+    public boolean emailExists(String email) {
+        Boolean response = userServicWebClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/users/exists")
+                        .queryParam("email", email)
+                        .build())
+                .retrieve()
+                .bodyToMono(Boolean.class)
+                .block();
+
+        return Boolean.TRUE.equals(response);
+    }
+
+    public UserResponse updatePassword(UserRequest request) {
+        return userServicWebClient.put()
+                .uri("/api/users/update-password")
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(status -> status.value() == 404,
+                        response -> response.bodyToMono(String.class).map(
+                                body -> new ResponseStatusException(HttpStatus.NOT_FOUND, body)))
+                .bodyToMono(UserResponse.class)
+                .block();
+    }
+
 }

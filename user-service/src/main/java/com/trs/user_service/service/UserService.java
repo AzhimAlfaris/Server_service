@@ -31,6 +31,16 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    public User updatePassword(UserRequest request) {
+        String normalizedEmail = normalizeEmail(request.getEmail());
+
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new RuntimeException("User not found: " + normalizedEmail));
+
+        user.setPassword(request.getPassword());
+        return userRepository.save(user);
+    }
+
     public Optional<User> getUserByEmail(String email) {
         return userRepository.findByEmail(normalizeEmail(email));
     }

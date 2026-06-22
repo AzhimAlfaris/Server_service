@@ -52,17 +52,6 @@ URL: http://localhost:8082/api/sensor-data/latest (Authorization: Bearer <token>
 
 
 
-user-service:
-Post:
-URL: http://localhost:8083/api/users
-Get:
-URL: http://localhost:8083/api/users/exists?email=decalyps@gmail.com
-     http://localhost:8083/api/users/decalyps@gmail.com
-
-
-
-
-
 security-service:
 Post:
 URL: http://localhost:8084/auth/register
@@ -72,7 +61,16 @@ Contoh data:
   "email": "decalyps@gmail.com",
   "password": "password123"
 }
-
+Get:
+URL: http://localhost:8084/auth/exists?email=decalyps@gmail.com
+Put:
+URL: http://localhost:8084/auth/reset-password
+Contoh data:
+{
+  "email": "decalyps@gmail.com",
+  "password": "password123",
+  "passwordAgain": "password123"
+}
 
 
 

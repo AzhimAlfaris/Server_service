@@ -112,8 +112,10 @@ Alur utamanya sekarang:
 7. Saat `microcontroller-service` menerima data baru, email pada body request divalidasi dulu ke `user-service`.
 8. Jika valid, `microcontroller-service` mem-publish event notifikasi ke RabbitMQ.
 9. `application-service` menerima event tersebut dan mengirim email ke alamat user yang ada di payload.
-10. Semua service mengirim log ke Logstash, lalu ke Elasticsearch, dan ditampilkan di Kibana.
-11. Semua service juga mengekspor metrics ke Prometheus, lalu bisa dilihat di Grafana.
+10. Jika user lupa password, client dapat mengecek email lewat `security-service`, lalu melakukan reset password melalui `security-service`.
+11. `security-service` memvalidasi input reset password, meng-hash password baru, lalu meneruskan update ke `user-service`.
+12. Semua service mengirim log ke Logstash, lalu ke Elasticsearch, dan ditampilkan di Kibana.
+13. Semua service juga mengekspor metrics ke Prometheus, lalu bisa dilihat di Grafana.
 
 ## 3. Arsitektur
 
@@ -151,6 +153,7 @@ Tanggung jawab:
 - memastikan email unik
 - menyediakan endpoint cek eksistensi email
 - menyediakan endpoint ambil user berdasarkan email
+- menyediakan endpoint update password dari `security-service`
 - menyediakan log request ke Logstash
 - mengekspor metrics ke Prometheus
 
@@ -160,6 +163,8 @@ Tanggung jawab:
 
 - register user ke `user-service`
 - login user dengan password yang di-hash
+- menyediakan bridge untuk cek eksistensi email ke `user-service`
+- menyediakan reset password flow
 - membuat JWT token
 - mengembalikan token untuk dipakai `application-service`
 - menyediakan log request ke Logstash
@@ -455,6 +460,8 @@ Nilai penting yang dipakai:
 4. Client melakukan login ke `security-service`.
 5. `security-service` mengambil user dari `user-service`, memvalidasi password, lalu mengembalikan JWT.
 6. JWT dipakai client saat memanggil endpoint `latest/history` di `application-service`.
+7. Jika client lupa password, client dapat memanggil `GET /auth/exists` untuk cek email dan `PUT /auth/reset-password` untuk memperbarui password.
+8. `security-service` akan meneruskan password baru yang sudah di-encode ke `user-service` melalui endpoint internal `PUT /api/users/update-password`.
 
 ## 9. RabbitMQ Design
 
@@ -697,6 +704,24 @@ Response:
 true
 ```
 
+### PUT `/api/users/update-password`
+
+Memperbarui password user berdasarkan email.
+
+Request body:
+
+```json
+{
+  "email": "user@example.com",
+  "password": "hashed-or-updated-password"
+}
+```
+
+Catatan:
+
+- Endpoint ini dipakai internal oleh `security-service`.
+- Password yang dikirim ke endpoint ini sudah dalam bentuk hasil encode dari `security-service`.
+
 ### GET `/api/users/{email}`
 
 Mengambil data user berdasarkan email.
@@ -754,6 +779,41 @@ Response:
   "email": "user@example.com"
 }
 ```
+
+### GET `/auth/exists?email=user@example.com`
+
+Mengecek apakah email ada di `user-service`.
+
+Response:
+
+```json
+true
+```
+
+### PUT `/auth/reset-password`
+
+Memvalidasi password baru, meng-hash password, lalu meneruskan update password ke `user-service`.
+
+Request body:
+
+```json
+{
+  "email": "user@example.com",
+  "password": "password123",
+  "passwordAgain": "password123"
+}
+```
+
+Response:
+
+- HTTP `200 OK`
+- body string `Password berhasil direset`
+
+Catatan:
+
+- Endpoint ini ditujukan untuk client.
+- `security-service` akan menolak request jika `password` dan `passwordAgain` berbeda.
+- Jika email tidak ditemukan, response akan `404 Not Found`.
 
 ## 12. Docker Compose Terbaru
 
@@ -931,4 +991,4 @@ Project ini sekarang terdiri dari:
 - `user-service` untuk menyimpan user dan validasi email
 - `security-service` untuk register/login dan penerbitan JWT token
 
-Database dipakai oleh `microcontroller-service` dan `user-service`, sementara observability sudah tersedia lewat Actuator, Prometheus, Grafana, dan ELK stack. test
+Database dipakai oleh `microcontroller-service` dan `user-service`, sementara observability sudah tersedia lewat Actuator, Prometheus, Grafana, dan ELK stack.
