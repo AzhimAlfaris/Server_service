@@ -931,4 +931,4 @@ Project ini sekarang terdiri dari:
 - `user-service` untuk menyimpan user dan validasi email
 - `security-service` untuk register/login dan penerbitan JWT token
 
-Database dipakai oleh `microcontroller-service` dan `user-service`, sementara observability sudah tersedia lewat Actuator, Prometheus, Grafana, dan ELK stack.
+Database dipakai oleh `microcontroller-service` dan `user-service`, sementara observability sudah tersedia lewat Actuator, Prometheus, Grafana, dan ELK stack. test
