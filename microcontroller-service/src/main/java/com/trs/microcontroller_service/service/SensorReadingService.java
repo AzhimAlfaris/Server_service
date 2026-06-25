@@ -2,6 +2,7 @@ package com.trs.microcontroller_service.service;
 
 import com.trs.microcontroller_service.dto.PotReadingRequest;
 import com.trs.microcontroller_service.dto.PotReadingResponse;
+import com.trs.microcontroller_service.dto.DeviceSettingsResponse;
 import com.trs.microcontroller_service.dto.SensorDeviceResponse;
 import com.trs.microcontroller_service.dto.SensorReadingRequest;
 import com.trs.microcontroller_service.dto.SensorReadingResponse;
@@ -60,8 +61,18 @@ public class SensorReadingService {
             throw new IllegalArgumentException("Minimal satu pot harus dikirim");
         }
 
-        if (!userServiceClient.userExists(email)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Email " + email + " tidak terdaftar di user-service");
+        DeviceSettingsResponse deviceSettings;
+        try {
+            deviceSettings = userServiceClient.getDeviceSettingsByAddress(address);
+        } catch (ResourceNotFoundException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Address " + address + " tidak terdaftar di device settings");
+        }
+
+        String registeredEmail = normalizeEmail(deviceSettings.email());
+        if (!registeredEmail.equals(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Email " + email + " tidak memiliki address " + address);
         }
 
         log.info("Saving sensor reading address={} pots={}", address, request.pots().size());

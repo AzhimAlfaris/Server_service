@@ -1,6 +1,10 @@
 package com.trs.application_service.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.trs.application_service.client.UserServiceClient;
+import com.trs.application_service.dto.DeviceSettingsRequest;
+import com.trs.application_service.dto.DeviceSettingsResponse;
+import com.trs.application_service.dto.DeviceSettingsUpsertRequest;
 import com.trs.application_service.dto.SensorQueryRequest;
 import com.trs.application_service.dto.SensorQueryResponse;
 import com.trs.application_service.exception.ResourceNotFoundException;
@@ -19,6 +23,7 @@ public class SensorDataClientService {
 
     private final RabbitTemplate rabbitTemplate;
     private final JwtService jwtService;
+    private final UserServiceClient userServiceClient;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     @Value("${app.rabbitmq.exchange}")
     private String exchangeName;
@@ -33,6 +38,19 @@ public class SensorDataClientService {
     public SensorQueryResponse getSensorHistory(String authorizationHeader, int limit) {
         String email = extractEmail(authorizationHeader);
         return requestSensorData(email, "HISTORY", limit);
+    }
+
+    public DeviceSettingsResponse saveOrUpdateDeviceSettings(String authorizationHeader, DeviceSettingsRequest request) {
+        String email = extractEmail(authorizationHeader);
+        String normalizedEmail = email == null ? null : email.trim().toLowerCase();
+        String normalizedAddress = normalizeAddress(request.address());
+        String normalizedSoilType = request.soilType() == null ? null : request.soilType().trim();
+
+        log.info("Forwarding device settings update email={} address={}", normalizedEmail, normalizedAddress);
+        return userServiceClient.upsertDeviceSettings(new DeviceSettingsUpsertRequest(
+                normalizedEmail,
+                normalizedAddress,
+                normalizedSoilType));
     }
 
     private SensorQueryResponse requestSensorData(String email, String requestType, int limit) {
@@ -66,5 +84,9 @@ public class SensorDataClientService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token tidak valid");
         }
         return email;
+    }
+
+    private String normalizeAddress(String address) {
+        return address == null ? null : address.trim().toUpperCase();
     }
 }

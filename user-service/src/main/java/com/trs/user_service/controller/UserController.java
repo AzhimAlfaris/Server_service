@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.trs.user_service.data.DeviceSettingsRequest;
+import com.trs.user_service.data.DeviceSettingsResponse;
 import com.trs.user_service.data.UserRequest;
 import com.trs.user_service.model.User;
 import com.trs.user_service.service.UserService;
@@ -66,6 +68,20 @@ public class UserController {
         }
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+    }
+
+    // PUT: Save or update device settings
+    @PutMapping("/device-settings")
+    public ResponseEntity<DeviceSettingsResponse> saveOrUpdateDeviceSettings(@Valid @RequestBody DeviceSettingsRequest request) {
+        DeviceSettingsResponse response = userService.saveOrUpdateDeviceSettings(request);
+        return ResponseEntity.ok(response);
+    }
+
+    // GET: Device settings by MAC address
+    @GetMapping("/device-settings/{address}")
+    public ResponseEntity<DeviceSettingsResponse> getDeviceSettingsByAddress(@PathVariable String address) {
+        DeviceSettingsResponse response = userService.getDeviceSettingsByAddress(address);
+        return ResponseEntity.ok(response);
     }
 
 }

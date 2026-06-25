@@ -601,8 +601,31 @@ Response:
 
 Catatan:
 
-- Email pada body divalidasi ke `user-service`.
-- Jika email tidak ada di `user-service`, request ditolak.
+- `address` pada body divalidasi ke `user-service` melalui tabel `device_settings`.
+- Jika `address` tidak ditemukan, request ditolak dengan `400 Bad Request`.
+- Jika `email` pada body tidak cocok dengan owner `address`, request ditolak dengan `403 Forbidden`.
+
+Contoh response sukses:
+
+```json
+{
+  "id": 1,
+  "address": "24:0A:C4:82:7D:64",
+  "email": "user@example.com",
+  "createdAt": "2026-06-14T17:30:00",
+  "pots": [
+    {
+      "potIndex": 1,
+      "sensorValue": "742",
+      "moisturePercent": "68",
+      "soilCondition": "Normal",
+      "action": "Pump ON",
+      "pumpDuration": "5 seconds",
+      "timestampSensor": "2026-06-14 17:30:00"
+    }
+  ]
+}
+```
 
 ### GET `/api/sensor-readings/latest/{email}`
 
@@ -621,6 +644,26 @@ Response:
 
 - HTTP `200 OK`
 - body `SensorQueryResponse`
+
+### GET `/api/device-settings/{address}`
+
+Endpoint publik untuk ESP32 yang mengambil konfigurasi perangkat berdasarkan MAC address.
+
+Response:
+
+- HTTP `200 OK`
+- body:
+
+```json
+{
+  "email": "user@example.com",
+  "soil_type": "Clay"
+}
+```
+
+Jika address tidak terdaftar:
+
+- HTTP `404 Not Found`
 
 ## 11.2 `application-service`
 
@@ -672,6 +715,40 @@ Catatan:
 
 - `application-service` tidak lagi memakai email di path URL untuk `latest/history`.
 - Email diambil dari token JWT yang divalidasi di service ini.
+
+### POST atau PUT `/api/sensor-data/device-settings`
+
+Menyimpan atau memperbarui konfigurasi device untuk user yang sedang login.
+
+Header:
+
+- `Authorization: Bearer <token>`
+
+Request body:
+
+```json
+{
+  "address": "24:0A:C4:82:7D:64",
+  "soil_type": "Clay"
+}
+```
+
+Behavior:
+
+- Email diambil dari JWT authentication context.
+- `application-service` meneruskan `email`, `address`, dan `soil_type` ke `user-service`.
+- `address` yang sama hanya boleh dimiliki satu email.
+
+Response contoh:
+
+```json
+{
+  "id": 1,
+  "email": "user@example.com",
+  "address": "24:0A:C4:82:7D:64",
+  "soil_type": "Clay"
+}
+```
 
 ## 11.3 `user-service`
 
@@ -730,6 +807,51 @@ Response:
 
 - HTTP `200 OK` bila ditemukan
 - HTTP `404 Not Found` bila tidak ditemukan
+
+### PUT `/api/users/device-settings`
+
+Menyimpan atau memperbarui device settings untuk owner address tertentu.
+
+Request body:
+
+```json
+{
+  "email": "user@example.com",
+  "address": "24:0A:C4:82:7D:64",
+  "soil_type": "Clay"
+}
+```
+
+Response:
+
+```json
+{
+  "id": 1,
+  "email": "user@example.com",
+  "address": "24:0A:C4:82:7D:64",
+  "soil_type": "Clay"
+}
+```
+
+### GET `/api/users/device-settings/{address}`
+
+Mengambil konfigurasi device dan email owner berdasarkan MAC address.
+
+Response:
+
+```json
+{
+  "id": 1,
+  "email": "user@example.com",
+  "address": "24:0A:C4:82:7D:64",
+  "soil_type": "Clay"
+}
+```
+
+Catatan:
+
+- `address` di tabel `device_settings` memiliki unique constraint.
+- Satu MAC address hanya boleh terikat ke satu email.
 
 ## 11.4 `security-service`
 

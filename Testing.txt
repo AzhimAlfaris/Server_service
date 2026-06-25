@@ -38,15 +38,32 @@ Contoh data:
 Get:
 URL: http://localhost:8081/api/sensor-readings/latest/decalyps@gmail.com
      http://localhost:8081/api/sensor-readings/history/decalyps@gmail.com?limit=5
+     http://localhost:8081/api/device-settings/24:0A:C4:82:7D:64
+     
 
 
 
 
 
 application-service:
+Post: 
+URL: http://localhost:8082/api/sensor-data/device-settings (Authorization: Bearer <token>)
+Contoh data:
+{
+  "address": "24:0A:C4:82:7D:64",
+  "soil_type": "Kering"
+}
 Get:
 URL: http://localhost:8082/api/sensor-data/latest (Authorization: Bearer <token>)
      http://localhost:8082/api/sensor-data/history?limit=5 (Authorization: Bearer <token>)
+Put: 
+URL: http://localhost:8082/api/sensor-data/device-settings (Authorization: Bearer <token>)
+Contoh data:
+{
+  "address": "24:0A:C4:82:7D:64",
+  "soil_type": "Kering"
+}
+
 
 
 

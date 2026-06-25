@@ -35,6 +35,17 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
+-- Struktur dari tabel `device_settings`
+--
+
+CREATE TABLE `device_settings` (
+  `id` bigint(20) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `address` varchar(255) NOT NULL,
+  `soil_type` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
 -- Indexes for dumped tables
 --
 
@@ -46,6 +57,13 @@ ALTER TABLE `users`
   ADD UNIQUE KEY `UK6dotkott2kjsp8vw4d0m25fb7` (`email`);
 
 --
+-- Indeks untuk tabel `device_settings`
+--
+ALTER TABLE `device_settings`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uk_device_settings_address` (`address`);
+
+--
 -- AUTO_INCREMENT untuk tabel yang dibuang
 --
 
@@ -53,6 +71,12 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT untuk tabel `users`
 --
 ALTER TABLE `users`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT untuk tabel `device_settings`
+--
+ALTER TABLE `device_settings`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 COMMIT;
 

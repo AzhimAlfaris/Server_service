@@ -91,6 +91,7 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: user
       RABBITMQ_PASSWORD: password
+      USERSERVICE_BASE_URL: http://user-service:8083
       MAIL_HOST: smtp.gmail.com
       MAIL_PORT: 587
       MAIL_USERNAME: anasrudi048@gmail.com
