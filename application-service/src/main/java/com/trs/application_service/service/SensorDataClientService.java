@@ -3,6 +3,8 @@ package com.trs.application_service.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trs.application_service.client.UserServiceClient;
 import com.trs.application_service.dto.DeviceSettingsRequest;
+import com.trs.application_service.dto.DeviceSettingsItemResponse;
+import com.trs.application_service.dto.DeviceSettingsQueryResponse;
 import com.trs.application_service.dto.DeviceSettingsResponse;
 import com.trs.application_service.dto.DeviceSettingsUpsertRequest;
 import com.trs.application_service.dto.SensorQueryRequest;
@@ -15,6 +17,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -38,6 +43,24 @@ public class SensorDataClientService {
     public SensorQueryResponse getSensorHistory(String authorizationHeader, int limit) {
         String email = extractEmail(authorizationHeader);
         return requestSensorData(email, "HISTORY", limit);
+    }
+
+    public DeviceSettingsQueryResponse getDeviceSettingsForDashboard(String authorizationHeader) {
+        String email = extractEmail(authorizationHeader);
+        String normalizedEmail = email == null ? null : email.trim().toLowerCase();
+        List<DeviceSettingsResponse> deviceSettings = userServiceClient.getDeviceSettingsByEmail(normalizedEmail);
+
+        List<DeviceSettingsItemResponse> devices = deviceSettings == null ? List.of() : deviceSettings.stream()
+                .map(device -> new DeviceSettingsItemResponse(
+                        device.address(),
+                        device.soilType()))
+                .collect(Collectors.toList());
+
+        return new DeviceSettingsQueryResponse(
+                "success",
+                "Daftar device settings berhasil diambil",
+                normalizedEmail,
+                devices);
     }
 
     public DeviceSettingsResponse saveOrUpdateDeviceSettings(String authorizationHeader, DeviceSettingsRequest request) {

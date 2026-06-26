@@ -1,6 +1,8 @@
 package com.trs.user_service.service;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -83,6 +85,13 @@ public class UserService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Device settings not found for address: " + normalizedAddress));
         return toResponse(deviceSetting);
+    }
+
+    public List<DeviceSettingsResponse> getDeviceSettingsByEmail(String email) {
+        String normalizedEmail = normalizeEmail(email);
+        return deviceSettingRepository.findAllByEmail(normalizedEmail).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
     private String normalizeEmail(String email) {

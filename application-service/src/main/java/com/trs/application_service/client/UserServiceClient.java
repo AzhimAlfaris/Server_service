@@ -3,10 +3,13 @@ package com.trs.application_service.client;
 import com.trs.application_service.dto.DeviceSettingsResponse;
 import com.trs.application_service.dto.DeviceSettingsUpsertRequest;
 
+import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -28,6 +31,18 @@ public class UserServiceClient {
                         response -> response.bodyToMono(String.class)
                                 .map(body -> new ResponseStatusException(HttpStatus.NOT_FOUND, body)))
                 .bodyToMono(DeviceSettingsResponse.class)
+                .block();
+    }
+
+    public List<DeviceSettingsResponse> getDeviceSettingsByEmail(String email) {
+        return userServiceWebClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/users/device-settings")
+                        .queryParam("email", email)
+                        .build())
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<List<DeviceSettingsResponse>>() {
+                })
                 .block();
     }
 

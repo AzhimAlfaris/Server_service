@@ -1,6 +1,7 @@
 package com.trs.application_service.controller;
 
 import com.trs.application_service.dto.DeviceSettingsRequest;
+import com.trs.application_service.dto.DeviceSettingsQueryResponse;
 import com.trs.application_service.dto.DeviceSettingsResponse;
 import com.trs.application_service.dto.SensorQueryResponse;
 import com.trs.application_service.service.SensorDataClientService;
@@ -38,6 +39,13 @@ public class SensorDataController {
                                                           @RequestParam(defaultValue = "5") int limit) {
         log.info("Request sensor history with authorization header limit={}", limit);
         return ResponseEntity.ok(sensorDataClientService.getSensorHistory(authorizationHeader, limit));
+    }
+
+    @GetMapping("/device-settings")
+    public ResponseEntity<DeviceSettingsQueryResponse> getDeviceSettings(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorizationHeader) {
+        log.info("Request device settings list with authorization header");
+        return ResponseEntity.ok(sensorDataClientService.getDeviceSettingsForDashboard(authorizationHeader));
     }
 
     @RequestMapping(value = "/device-settings", method = {RequestMethod.POST, RequestMethod.PUT})

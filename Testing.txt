@@ -56,6 +56,7 @@ Contoh data:
 Get:
 URL: http://localhost:8082/api/sensor-data/latest (Authorization: Bearer <token>)
      http://localhost:8082/api/sensor-data/history?limit=5 (Authorization: Bearer <token>)
+     http://localhost:8082/api/sensor-data/device-settings (Authorization: Bearer <token>)
 Put: 
 URL: http://localhost:8082/api/sensor-data/device-settings (Authorization: Bearer <token>)
 Contoh data:

@@ -716,6 +716,34 @@ Catatan:
 - `application-service` tidak lagi memakai email di path URL untuk `latest/history`.
 - Email diambil dari token JWT yang divalidasi di service ini.
 
+### GET `/api/sensor-data/device-settings`
+
+Mengambil seluruh daftar MAC address yang dimiliki oleh email pada JWT, untuk ditampilkan di dashboard walaupun data sensor belum ada.
+
+Header:
+
+- `Authorization: Bearer <token>`
+
+Response:
+
+```json
+{
+  "status": "success",
+  "message": "Daftar device settings berhasil diambil",
+  "email": "user@example.com",
+  "devices": [
+    {
+      "address": "24:0A:C4:82:7D:64",
+      "soil_type": "Kering"
+    },
+    {
+      "address": "24:0A:C4:82:7D:65",
+      "soil_type": "Lembab"
+    }
+  ]
+}
+```
+
 ### POST atau PUT `/api/sensor-data/device-settings`
 
 Menyimpan atau memperbarui konfigurasi device untuk user yang sedang login.
@@ -749,6 +777,11 @@ Response contoh:
   "soil_type": "Clay"
 }
 ```
+
+Catatan:
+
+- Endpoint `GET /api/sensor-data/device-settings` dipakai dashboard untuk menampilkan device yang sudah didaftarkan user.
+- Data device diambil dari `user-service`, jadi akan tetap muncul walaupun data sensor dari ESP32 masih kosong.
 
 ## 11.3 `user-service`
 
@@ -852,6 +885,27 @@ Catatan:
 
 - `address` di tabel `device_settings` memiliki unique constraint.
 - Satu MAC address hanya boleh terikat ke satu email.
+
+### GET `/api/users/device-settings?email=user@example.com`
+
+Mengambil seluruh device settings milik email tertentu.
+
+Response:
+
+```json
+[
+  {
+    "id": 1,
+    "email": "user@example.com",
+    "address": "24:0A:C4:82:7D:64",
+    "soil_type": "Kering"
+  }
+]
+```
+
+Catatan:
+
+- Endpoint ini dipakai internal oleh `application-service` untuk menampilkan daftar device di dashboard.
 
 ## 11.4 `security-service`
 
@@ -1113,4 +1167,4 @@ Project ini sekarang terdiri dari:
 - `user-service` untuk menyimpan user dan validasi email
 - `security-service` untuk register/login dan penerbitan JWT token
 
-Database dipakai oleh `microcontroller-service` dan `user-service`, sementara observability sudah tersedia lewat Actuator, Prometheus, Grafana, dan ELK stack.
+Database dipakai oleh `microcontroller-service` dan `user-service`, sementara observability sudah tersedia lewat Actuator, Prometheus, Grafana, dan ELK stack. test

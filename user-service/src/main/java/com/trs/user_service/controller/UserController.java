@@ -84,4 +84,10 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
+    // GET: Device settings by email
+    @GetMapping("/device-settings")
+    public ResponseEntity<?> getDeviceSettingsByEmail(@RequestParam String email) {
+        return ResponseEntity.ok(userService.getDeviceSettingsByEmail(email));
+    }
+
 }
