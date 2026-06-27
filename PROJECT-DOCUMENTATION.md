@@ -112,10 +112,12 @@ Alur utamanya sekarang:
 7. Saat `microcontroller-service` menerima data baru, email pada body request divalidasi dulu ke `user-service`.
 8. Jika valid, `microcontroller-service` mem-publish event notifikasi ke RabbitMQ.
 9. `application-service` menerima event tersebut dan mengirim email ke alamat user yang ada di payload.
-10. Jika user lupa password, client dapat mengecek email lewat `security-service`, lalu melakukan reset password melalui `security-service`.
-11. `security-service` memvalidasi input reset password, meng-hash password baru, lalu meneruskan update ke `user-service`.
-12. Semua service mengirim log ke Logstash, lalu ke Elasticsearch, dan ditampilkan di Kibana.
-13. Semua service juga mengekspor metrics ke Prometheus, lalu bisa dilihat di Grafana.
+10. Client juga bisa menyimpan atau membaca `device-settings` melalui `application-service` dan `user-service`.
+11. Client bisa mengirim command manual watering lewat `application-service`, lalu command diteruskan ke RabbitMQ per address.
+12. Jika user lupa password, client dapat mengecek email lewat `security-service`, lalu melakukan reset password melalui `security-service`.
+13. `security-service` memvalidasi input reset password, meng-hash password baru, lalu meneruskan update ke `user-service`.
+14. Semua service mengirim log ke Logstash, lalu ke Elasticsearch, dan ditampilkan di Kibana.
+15. Semua service juga mengekspor metrics ke Prometheus, lalu bisa dilihat di Grafana.
 
 ## 3. Arsitektur
 
@@ -125,8 +127,8 @@ Tanggung jawab:
 
 - menerima data sensor dari ESP32
 - menyimpan data ke MySQL
-- memvalidasi email request POST ke `user-service`
-- menyediakan endpoint `latest` dan `history` untuk debug/internal
+- memvalidasi email dan address request POST ke `user-service`
+- menyediakan endpoint `latest`, `history`, `device-settings`, dan `device-commands` untuk akses internal/debug
 - mengirim event notifikasi ke RabbitMQ setelah insert berhasil
 - mengirim log aplikasi ke Logstash
 - mengekspor metrics ke Prometheus
@@ -136,9 +138,12 @@ Tanggung jawab:
 Tanggung jawab:
 
 - menyediakan endpoint `latest` dan `history` untuk aplikasi
+- menyediakan endpoint `device-settings` untuk dashboard
+- menyediakan endpoint `command` untuk manual watering
 - mengambil email dari Bearer token
 - memvalidasi token JWT secara lokal
 - mengirim request data `LATEST` atau `HISTORY` melalui RabbitMQ
+- mengelola queue RabbitMQ dinamis untuk command per address
 - menerima event notifikasi dari RabbitMQ
 - mengirim email otomatis ke user
 - tidak memakai database sendiri
@@ -151,9 +156,11 @@ Tanggung jawab:
 
 - menyimpan data user
 - memastikan email unik
+- menyimpan dan membaca `device_settings`
 - menyediakan endpoint cek eksistensi email
 - menyediakan endpoint ambil user berdasarkan email
 - menyediakan endpoint update password dari `security-service`
+- menyediakan endpoint read/update device settings
 - menyediakan log request ke Logstash
 - mengekspor metrics ke Prometheus
 
@@ -252,6 +259,7 @@ Index log yang dipakai oleh Logstash saat ini:
 - `controller`
   - `SensorDataController`
 - `service`
+  - `DeviceCommandPublisherService`
   - `SensorDataClientService`
   - `SensorEmailListener`
   - `SensorEmailService`
@@ -259,7 +267,16 @@ Index log yang dipakai oleh Logstash saat ini:
 - `config`
   - `RabbitMQConfig`
   - `HttpRequestLoggingFilter`
+  - `WebClientConfig`
 - `dto`
+  - `DeviceCommandMessage`
+  - `DeviceCommandRequest`
+  - `DeviceCommandResponse`
+  - `DeviceSettingsItemResponse`
+  - `DeviceSettingsQueryResponse`
+  - `DeviceSettingsRequest`
+  - `DeviceSettingsResponse`
+  - `DeviceSettingsUpsertRequest`
   - `SensorQueryRequest`
   - `SensorQueryResponse`
   - `SensorDeviceResponse`
@@ -273,13 +290,18 @@ Index log yang dipakai oleh Logstash saat ini:
 ### 6.2 `microcontroller-service`
 
 - `controller`
+  - `DeviceCommandController`
+  - `DeviceSettingsController`
   - `SensorReadingController`
 - `service`
+  - `DeviceCommandService`
+  - `DeviceSettingsService`
   - `SensorReadingService`
   - `SensorRequestListener`
 - `config`
   - `RabbitMQConfig`
   - `HttpRequestLoggingFilter`
+  - `WebClientConfig`
 - `client`
   - `UserServiceClient`
 - `repository`
@@ -288,6 +310,10 @@ Index log yang dipakai oleh Logstash saat ini:
   - `SensorReading`
   - `PotDetail`
 - `dto`
+  - `DeviceCommandMessage`
+  - `DeviceCommandResponse`
+  - `DeviceSettingsPublicResponse`
+  - `DeviceSettingsResponse`
   - `SensorReadingRequest`
   - `SensorReadingResponse`
   - `SensorQueryRequest`
@@ -308,10 +334,14 @@ Index log yang dipakai oleh Logstash saat ini:
 - `config`
   - `HttpRequestLoggingFilter`
 - `repository`
+  - `DeviceSettingRepository`
   - `UserRepository`
 - `model`
+  - `DeviceSetting`
   - `User`
 - `data`
+  - `DeviceSettingsRequest`
+  - `DeviceSettingsResponse`
   - `UserRequest`
 - `handler`
   - `GlobalExceptionHandler`
@@ -332,6 +362,7 @@ Index log yang dipakai oleh Logstash saat ini:
 - `data`
   - `AuthRequest`
   - `AuthResponse`
+  - `PasswordResetRequest`
   - `UserRequest`
   - `UserResponse`
 - `error`
@@ -353,6 +384,7 @@ Nilai penting yang dipakai:
 - `spring.application.name=application-service`
 - `server.port=8082`
 - `jwt.secret=...`
+- `userservice.base-url=${USERSERVICE_BASE_URL:http://localhost:8083}`
 - `spring.rabbitmq.host=${RABBITMQ_HOST:localhost}`
 - `spring.rabbitmq.port=${RABBITMQ_PORT:5672}`
 - `spring.rabbitmq.username=${RABBITMQ_USERNAME:user}`
@@ -360,6 +392,7 @@ Nilai penting yang dipakai:
 - `app.rabbitmq.exchange=sensor.exchange`
 - `app.rabbitmq.queue=sensor.request.queue`
 - `app.rabbitmq.routing-key=sensor.request`
+- `app.rabbitmq.command-exchange=device.command.exchange`
 - `app.rabbitmq.notification-queue=sensor.notification.queue`
 - `app.rabbitmq.notification-routing-key=sensor.notification`
 - `app.mail.from=${MAIL_FROM:anasrudi048@gmail.com}`
@@ -367,6 +400,9 @@ Nilai penting yang dipakai:
 - `spring.mail.port=${MAIL_PORT:587}`
 - `spring.mail.username=${MAIL_USERNAME:anasrudi048@gmail.com}`
 - `spring.mail.password=${MAIL_PASSWORD:...}`
+- `spring.mail.properties.mail.smtp.auth=true`
+- `spring.mail.properties.mail.smtp.starttls.enable=true`
+- `spring.mail.properties.mail.smtp.starttls.required=true`
 - `management.endpoints.web.exposure.include=health,info,prometheus`
 - `management.metrics.tags.application=${spring.application.name}`
 
@@ -413,6 +449,7 @@ Nilai penting yang dipakai:
 - `spring.jpa.hibernate.ddl-auto=update`
 - `spring.jpa.show-sql=true`
 - `spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect`
+- `logstash.host=${LOGSTASH_HOST:localhost}`
 - `management.endpoints.web.exposure.include=health,info,prometheus`
 - `management.metrics.tags.application=${spring.application.name}`
 
@@ -463,11 +500,28 @@ Nilai penting yang dipakai:
 7. Jika client lupa password, client dapat memanggil `GET /auth/exists` untuk cek email dan `PUT /auth/reset-password` untuk memperbarui password.
 8. `security-service` akan meneruskan password baru yang sudah di-encode ke `user-service` melalui endpoint internal `PUT /api/users/update-password`.
 
+### 8.4 Device settings
+
+1. Client login ke `application-service`.
+2. `application-service` mengambil email dari JWT.
+3. Client mengakses `GET /api/sensor-data/device-settings` untuk melihat daftar device milik email tersebut.
+4. Saat client menyimpan atau memperbarui device settings, `application-service` meneruskan email, address, dan `soil_types` ke `user-service`.
+5. `user-service` menyimpan data ke tabel `device_settings` dengan `address` yang unik.
+6. `application-service` memastikan queue command untuk address tersebut tersedia di RabbitMQ.
+
+### 8.5 Manual command
+
+1. Client mengirim `POST /api/sensor-data/command` ke `application-service`.
+2. `application-service` memvalidasi token dan memastikan email peminta adalah pemilik `address`.
+3. Jika valid, command dikirim ke queue dinamis `device.command.<address>`.
+4. `microcontroller-service` atau client lain bisa mengambil command terakhir dari queue tersebut.
+
 ## 9. RabbitMQ Design
 
 ### 9.1 Exchange
 
 - `sensor.exchange`
+- `device.command.exchange`
 
 ### 9.2 Queue
 
@@ -483,7 +537,12 @@ Nilai penting yang dipakai:
 
 ### 9.4 Perilaku penting
 
-- Exchange yang dipakai adalah `DirectExchange`.
+- `sensor.exchange` adalah `DirectExchange`.
+- `device.command.exchange` adalah `TopicExchange`.
+- `sensor.request.queue` dibind ke `sensor.exchange` dengan routing key `sensor.request`.
+- `sensor.notification.queue` dibind ke `sensor.exchange` dengan routing key `sensor.notification`.
+- Queue command device dibuat dinamis oleh `application-service` saat device settings disimpan atau command dikirim.
+- Queue command device memakai durable queue dengan konfigurasi `x-max-length = 1` dan `x-overflow = drop-head`.
 - Request history memakai `requestType=HISTORY` dan `limit`.
 - Request latest memakai `requestType=LATEST`.
 - Jika request type tidak ada, listener di `microcontroller-service` default ke `LATEST`.
@@ -531,12 +590,27 @@ Database ini dipakai oleh `user-service`.
 Struktur inti:
 
 - `users`
+- `device_settings`
 
 Kolom utama:
 
 - `id`
 - `email`
 - `password`
+
+Kolom inti `device_settings`:
+
+- `id`
+- `email`
+- `address`
+- `soil_type`
+- `soil_types`
+
+Catatan:
+
+- `soil_types` disimpan sebagai JSON string.
+- `soil_type` menyimpan item pertama sebagai nilai ringkas/legacy field.
+- `address` unik untuk satu baris device settings.
 
 Email dibuat unik melalui constraint di entity dan validasi service.
 
@@ -670,6 +744,11 @@ Response:
 Jika address tidak terdaftar:
 
 - HTTP `404 Not Found`
+
+Catatan:
+
+- Response memakai field `soil_types`.
+- Endpoint ini mengambil data dari `user-service` melalui `DeviceSettingsService`.
 
 ## 11.2 `application-service`
 
@@ -849,6 +928,11 @@ Response contoh:
 }
 ```
 
+Catatan:
+
+- Queue dan binding command dibuat secara dinamis dari `DeviceCommandPublisherService`.
+- Pesan command lama akan terpotong jika ada command baru untuk address yang sama.
+
 ## 11.3 `user-service`
 
 Base URL:
@@ -1010,8 +1094,9 @@ Catatan:
 
 - Endpoint ini membantu ESP32 atau client lain memeriksa command terbaru yang sudah masuk ke queue RabbitMQ.
 - Saat endpoint ini dipanggil, microcontroller-service akan mengambil pesan terbaru dari queue milik address tersebut jika masih ada di RabbitMQ.
+- Jika queue kosong, response adalah `404 Not Found`.
 
-## 11.4 `security-service`
+## 11.5 `security-service`
 
 Base URL:
 
