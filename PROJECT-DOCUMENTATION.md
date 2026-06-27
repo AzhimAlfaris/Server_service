@@ -113,7 +113,7 @@ Alur utamanya sekarang:
 8. Jika valid, `microcontroller-service` mem-publish event notifikasi ke RabbitMQ.
 9. `application-service` menerima event tersebut dan mengirim email ke alamat user yang ada di payload.
 10. Client juga bisa menyimpan atau membaca `device-settings` melalui `application-service` dan `user-service`.
-11. Client bisa mengirim command manual watering lewat `application-service`, lalu command diteruskan ke RabbitMQ per address.
+11. Client bisa mengirim command manual watering lewat `application-service`, lalu command diteruskan ke RabbitMQ per address dan per pot.
 12. Jika user lupa password, client dapat mengecek email lewat `security-service`, lalu melakukan reset password melalui `security-service`.
 13. `security-service` memvalidasi input reset password, meng-hash password baru, lalu meneruskan update ke `user-service`.
 14. Semua service mengirim log ke Logstash, lalu ke Elasticsearch, dan ditampilkan di Kibana.
@@ -128,7 +128,7 @@ Tanggung jawab:
 - menerima data sensor dari ESP32
 - menyimpan data ke MySQL
 - memvalidasi email dan address request POST ke `user-service`
-- menyediakan endpoint `latest`, `history`, `device-settings`, dan `device-commands` untuk akses internal/debug
+- menyediakan endpoint `latest`, `history`, dan `device-settings` untuk akses internal/debug
 - mengirim event notifikasi ke RabbitMQ setelah insert berhasil
 - mengirim log aplikasi ke Logstash
 - mengekspor metrics ke Prometheus
@@ -139,11 +139,12 @@ Tanggung jawab:
 
 - menyediakan endpoint `latest` dan `history` untuk aplikasi
 - menyediakan endpoint `device-settings` untuk dashboard
-- menyediakan endpoint `command` untuk manual watering
+- menyediakan endpoint `command` untuk manual watering per pot
 - mengambil email dari Bearer token
 - memvalidasi token JWT secara lokal
 - mengirim request data `LATEST` atau `HISTORY` melalui RabbitMQ
-- mengelola queue RabbitMQ dinamis untuk command per address
+- mengirim command manual ke RabbitMQ dengan routing key MQTT-style per address dan per pot
+- memastikan ownership request sebelum publish command
 - menerima event notifikasi dari RabbitMQ
 - mengirim email otomatis ke user
 - tidak memakai database sendiri
@@ -259,7 +260,6 @@ Index log yang dipakai oleh Logstash saat ini:
 - `controller`
   - `SensorDataController`
 - `service`
-  - `DeviceCommandPublisherService`
   - `SensorDataClientService`
   - `SensorEmailListener`
   - `SensorEmailService`
@@ -269,7 +269,6 @@ Index log yang dipakai oleh Logstash saat ini:
   - `HttpRequestLoggingFilter`
   - `WebClientConfig`
 - `dto`
-  - `DeviceCommandMessage`
   - `DeviceCommandRequest`
   - `DeviceCommandResponse`
   - `DeviceSettingsItemResponse`
@@ -290,11 +289,9 @@ Index log yang dipakai oleh Logstash saat ini:
 ### 6.2 `microcontroller-service`
 
 - `controller`
-  - `DeviceCommandController`
   - `DeviceSettingsController`
   - `SensorReadingController`
 - `service`
-  - `DeviceCommandService`
   - `DeviceSettingsService`
   - `SensorReadingService`
   - `SensorRequestListener`
@@ -310,8 +307,6 @@ Index log yang dipakai oleh Logstash saat ini:
   - `SensorReading`
   - `PotDetail`
 - `dto`
-  - `DeviceCommandMessage`
-  - `DeviceCommandResponse`
   - `DeviceSettingsPublicResponse`
   - `DeviceSettingsResponse`
   - `SensorReadingRequest`
@@ -507,14 +502,24 @@ Nilai penting yang dipakai:
 3. Client mengakses `GET /api/sensor-data/device-settings` untuk melihat daftar device milik email tersebut.
 4. Saat client menyimpan atau memperbarui device settings, `application-service` meneruskan email, address, dan `soil_types` ke `user-service`.
 5. `user-service` menyimpan data ke tabel `device_settings` dengan `address` yang unik.
-6. `application-service` memastikan queue command untuk address tersebut tersedia di RabbitMQ.
+6. Saat ESP32 atau MQTT client melakukan subscribe, RabbitMQ MQTT plugin akan membuat queue subscription dengan prefix `mqtt-subscription-` secara otomatis.
+7. `application-service` tidak membuat queue command manual, tetapi hanya mem-publish command ke topic MQTT-style yang sesuai.
 
 ### 8.5 Manual command
 
 1. Client mengirim `POST /api/sensor-data/command` ke `application-service`.
-2. `application-service` memvalidasi token dan memastikan email peminta adalah pemilik `address`.
-3. Jika valid, command dikirim ke queue dinamis `device.command.<address>`.
-4. `microcontroller-service` atau client lain bisa mengambil command terakhir dari queue tersebut.
+2. Request JSON harus memuat `address`, `command`, `duration`, dan `pot_index`.
+3. `application-service` memvalidasi token Bearer, mengekstrak email dari JWT, lalu memastikan email peminta adalah pemilik `address`.
+4. `address` dinormalisasi ke format uppercase untuk validasi ownership, lalu format MAC untuk routing key dibuat tanpa tanda titik dua.
+5. `pot_index` divalidasi minimal `1` agar command hanya ditargetkan ke satu pot tanaman yang valid.
+6. Jika valid, payload command yang dikirim ke RabbitMQ tetap JSON utuh, hanya routing key-nya yang berubah menjadi:
+   - `device/command/<cleanAddress>/pot/<potIndex>`
+7. Contoh:
+   - address `24:0A:C4:82:7D:64`
+   - pot index `1`
+   - routing key `device/command/240AC4827D64/pot/1`
+8. RabbitMQ MQTT plugin meneruskan command itu ke subscription queue ESP32 secara real-time.
+9. Queue subscription MQTT yang aktif akan menerima message terbaru sesuai policy LVQ sehingga jika device offline, command lama dapat tergeser oleh command terbaru.
 
 ## 9. RabbitMQ Design
 
@@ -527,13 +532,13 @@ Nilai penting yang dipakai:
 
 - `sensor.request.queue`
 - `sensor.notification.queue`
-- `device.command.<address>` untuk command manual per device
+- `mqtt-subscription-<client-id>` untuk queue subscription MQTT ESP32 yang dibuat otomatis oleh RabbitMQ MQTT plugin
 
 ### 9.3 Routing key
 
 - `sensor.request`
 - `sensor.notification`
-- `device.command.<address>` untuk command manual per device
+- `device/command/<MAC tanpa ':'>/pot/<potIndex>` untuk command manual per pot
 
 ### 9.4 Perilaku penting
 
@@ -541,8 +546,15 @@ Nilai penting yang dipakai:
 - `device.command.exchange` adalah `TopicExchange`.
 - `sensor.request.queue` dibind ke `sensor.exchange` dengan routing key `sensor.request`.
 - `sensor.notification.queue` dibind ke `sensor.exchange` dengan routing key `sensor.notification`.
-- Queue command device dibuat dinamis oleh `application-service` saat device settings disimpan atau command dikirim.
-- Queue command device memakai durable queue dengan konfigurasi `x-max-length = 1` dan `x-overflow = drop-head`.
+- ESP32 menerima command manual melalui MQTT subscription, bukan lagi lewat HTTP polling.
+- Application-service tetap menjadi entry point HTTP untuk client, tetapi publish command ke RabbitMQ menggunakan topic MQTT-style.
+- Queue subscription MQTT yang diawali `mqtt-subscription-` harus diberi policy LVQ dengan `x-max-length = 1` dan `x-overflow = drop-head`.
+- Policy ini memastikan jika device offline dan command masuk bertubi-tubi, hanya command terbaru yang tersisa saat device reconnect.
+- Policy tersebut dipasang otomatis oleh [`init/rabbitmq-start.sh`](./init/rabbitmq-start.sh) saat container RabbitMQ start di Docker.
+- Startup RabbitMQ di Docker memakai [`init/rabbitmq-start.sh`](./init/rabbitmq-start.sh) untuk mengaktifkan plugin MQTT dan memasang policy ini.
+- Referensi policy ada di [`init/rabbitmq-lvq-policy.md`](./init/rabbitmq-lvq-policy.md).
+- Payload command tidak diubah strukturnya saat dipublish, sehingga ESP32 tetap bisa membaca `email`, `address`, `command`, `duration`, dan `pot_index`.
+- Routing key hanya dipakai untuk menentukan target topic di MQTT.
 - Request history memakai `requestType=HISTORY` dan `limit`.
 - Request latest memakai `requestType=LATEST`.
 - Jika request type tidak ada, listener di `microcontroller-service` default ke `LATEST`.
@@ -886,7 +898,7 @@ Catatan:
 
 ### POST `/api/sensor-data/command`
 
-Mengirim command manual watering ke device tertentu.
+Mengirim command manual watering ke device tertentu dan pot tertentu.
 
 Header:
 
@@ -898,7 +910,8 @@ Request body:
 {
   "address": "24:0A:C4:82:7D:64",
   "command": "PUMP_ON_MANUAL",
-  "duration": 5
+  "duration": 5,
+  "pot_index": 1
 }
 ```
 
@@ -908,10 +921,11 @@ Behavior:
 - `address` divalidasi ke `user-service`.
 - Jika `address` tidak ada, response `400 Bad Request`.
 - Jika owner `address` tidak sama dengan email JWT, response `403 Forbidden`.
-- Jika valid, payload dikirim ke RabbitMQ dengan routing key berbasis address:
-  - contoh `device.command.24.0A.C4.82.7D.64`
-- command disimpan pada queue per address, dengan nama queue yang sama seperti routing key
-- tiap queue device dikonfigurasi sebagai Last-Value Queue:
+- `pot_index` wajib ada dan nilainya minimal `1`.
+- Jika valid, payload dikirim ke RabbitMQ dengan routing key berbasis MQTT:
+  - contoh `device/command/240AC4827D64/pot/1`
+- MQTT subscription queue milik ESP32 menggunakan pola `mqtt-subscription-<client-id>`
+- queue tersebut harus memakai LVQ policy:
   - `x-max-length = 1`
   - `x-overflow = drop-head`
   - artinya jika beberapa command masuk saat ESP32 offline, message lama dibuang dan hanya command terbaru yang tersisa untuk address tersebut
@@ -924,14 +938,17 @@ Response contoh:
   "message": "Perintah manual watering berhasil dikirim",
   "email": "user@example.com",
   "address": "24:0A:C4:82:7D:64",
-  "routingKey": "device.command.24.0A.C4.82.7D.64"
+  "routingKey": "device/command/240AC4827D64/pot/1"
 }
 ```
 
 Catatan:
 
-- Queue dan binding command dibuat secara dinamis dari `DeviceCommandPublisherService`.
-- Pesan command lama akan terpotong jika ada command baru untuk address yang sama.
+- `routingKey` pada response mengikuti topic MQTT-style yang dikirim ke RabbitMQ.
+- `routingKey` berisi address yang sudah dibersihkan dari tanda titik dua dan nomor pot yang dituju.
+- Pesan command lama akan terpotong jika ada command baru untuk address yang sama sesuai LVQ policy.
+- Command manual ini tidak lewat microcontroller-service lagi.
+- microcontroller-service hanya menangani data sensor dan device settings, bukan command siram manual.
 
 ## 11.3 `user-service`
 
@@ -1073,30 +1090,7 @@ Catatan:
 
 - Endpoint ini dipakai internal oleh `application-service` untuk menampilkan daftar device di dashboard.
 
-## 11.4 `microcontroller-service` command bridge
-
-### GET `/api/device-commands/{address}`
-
-Mengambil command manual terakhir yang diterima untuk address tertentu.
-
-Response:
-
-```json
-{
-  "email": "user@example.com",
-  "address": "24:0A:C4:82:7D:64",
-  "command": "PUMP_ON_MANUAL",
-  "duration": 5
-}
-```
-
-Catatan:
-
-- Endpoint ini membantu ESP32 atau client lain memeriksa command terbaru yang sudah masuk ke queue RabbitMQ.
-- Saat endpoint ini dipanggil, microcontroller-service akan mengambil pesan terbaru dari queue milik address tersebut jika masih ada di RabbitMQ.
-- Jika queue kosong, response adalah `404 Not Found`.
-
-## 11.5 `security-service`
+## 11.4 `security-service`
 
 Base URL:
 
@@ -1200,6 +1194,7 @@ Catatan:
 
 - MySQL -> `3306`
 - RabbitMQ AMQP -> `5672`
+- RabbitMQ MQTT -> `1883`
 - RabbitMQ UI -> `15672`
 - `microcontroller-service` -> `8081`
 - `application-service` -> `8082`
@@ -1266,6 +1261,9 @@ Semua container menggunakan network:
 
 - Di dalam container, `localhost` tidak dipakai untuk koneksi antarservice.
 - Gunakan nama service container seperti `verdant-mysql`, `rabbitmq`, `user-service`, dan `verdant-logstash`.
+- RabbitMQ container mengaktifkan plugin `rabbitmq_mqtt` saat startup.
+- ESP32 atau MQTT client dapat subscribe langsung melalui port `1883`.
+- Startup RabbitMQ di Docker juga memasang policy LVQ `^mqtt-subscription-` secara otomatis lewat [`init/rabbitmq-start.sh`](./init/rabbitmq-start.sh).
 - `docker-compose.yml` memasang healthcheck untuk MySQL dan RabbitMQ.
 - Dockerfile untuk semua service Java menggunakan image runtime JRE dan menyalin file `.jar` dari folder `target/`.
 - Proses build Java dijalankan di luar Docker memakai Maven Wrapper, lalu container dijalankan dari artifact yang sudah jadi.

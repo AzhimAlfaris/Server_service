@@ -79,7 +79,6 @@ public class SensorDataClientService {
                 normalizedEmail,
                 normalizedAddress,
                 normalizedSoilTypes));
-        deviceCommandPublisherService.ensureQueue(normalizedAddress);
         return response;
     }
 
@@ -89,6 +88,7 @@ public class SensorDataClientService {
         String normalizedAddress = normalizeAddress(request.address());
         String normalizedCommand = normalizeCommand(request.command());
         Integer duration = request.duration();
+        Integer potIndex = normalizePotIndex(request.potIndex());
 
         DeviceSettingsResponse deviceSettings;
         try {
@@ -111,18 +111,19 @@ public class SensorDataClientService {
                 normalizedRequesterEmail,
                 normalizedAddress,
                 normalizedCommand,
-                duration);
+                duration,
+                potIndex);
 
         try {
-            String queueName = deviceCommandPublisherService.publish(commandMessage);
-            log.info("Published manual command address={} queue={} duration={}",
-                    normalizedAddress, queueName, duration);
+            String routingKey = deviceCommandPublisherService.publish(commandMessage);
+            log.info("Published manual command address={} potIndex={} routingKey={} duration={}",
+                    normalizedAddress, potIndex, routingKey, duration);
             return new DeviceCommandResponse(
                     "success",
                     "Perintah manual watering berhasil dikirim",
                     normalizedRequesterEmail,
                     normalizedAddress,
-                    queueName);
+                    routingKey);
         } catch (Exception exception) {
             log.error("Failed to publish manual command address={}", normalizedAddress, exception);
             throw new RuntimeException("Gagal mengirim perintah manual: " + exception.getMessage(), exception);
@@ -172,6 +173,13 @@ public class SensorDataClientService {
 
     private String normalizeCommand(String command) {
         return command == null ? null : command.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private Integer normalizePotIndex(Integer potIndex) {
+        if (potIndex == null || potIndex < 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "pot_index harus bernilai minimal 1");
+        }
+        return potIndex;
     }
 
     private List<String> normalizeSoilTypes(List<String> soilTypes) {

@@ -7,6 +7,7 @@ Backend microservices Spring Boot untuk monitoring sensor ESP32, dengan MySQL, R
 - `microcontroller-service` menerima data sensor, menyimpannya ke MySQL, lalu mem-publish event notifikasi ke RabbitMQ.
 - `application-service` mengambil data sensor dari `microcontroller-service` berdasarkan email pengguna saat aplikasi meminta data.
 - `application-service` juga menerima event notifikasi untuk mengirim email ke user.
+- Manual watering command sekarang dipush lewat RabbitMQ MQTT ke ESP32, bukan lewat polling HTTP bridge.
 - `application-service` tidak memakai database sendiri.
 - `docker-compose.yml` terbaru juga menjalankan `prometheus` dan `grafana`.
 
@@ -104,6 +105,7 @@ Index pattern ini sesuai dengan konfigurasi Logstash yang menulis log ke index b
 - `application-service` -> `http://localhost:8082`
 - RabbitMQ UI -> `http://localhost:15672`
 - RabbitMQ AMQP -> `5672`
+- RabbitMQ MQTT -> `1883`
 - MySQL -> `3306`
 - Prometheus -> `http://localhost:9090`
 - Grafana -> `http://localhost:3000`

@@ -7,5 +7,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public record DeviceCommandMessage(String email,
                                    String address,
                                    String command,
-                                   @JsonProperty("duration") Integer duration) {
+                                   @JsonProperty("duration") Integer duration,
+                                   @JsonProperty("pot_index") Integer potIndex) {
 }

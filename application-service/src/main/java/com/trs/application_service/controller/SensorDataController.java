@@ -63,7 +63,8 @@ public class SensorDataController {
     public ResponseEntity<DeviceCommandResponse> sendManualWateringCommand(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorizationHeader,
             @Valid @RequestBody DeviceCommandRequest request) {
-        log.info("Request manual watering command address={} duration={}", request.address(), request.duration());
+        log.info("Request manual watering command address={} potIndex={} duration={}",
+                request.address(), request.potIndex(), request.duration());
         return ResponseEntity.ok(sensorDataClientService.sendManualWateringCommand(authorizationHeader, request));
     }
 }

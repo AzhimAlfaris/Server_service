@@ -25,12 +25,16 @@ services:
     image: rabbitmq:management
     container_name: verdant-rabbitmq
     restart: unless-stopped
+    command: sh /usr/local/bin/rabbitmq-start.sh
     environment:
       RABBITMQ_DEFAULT_USER: user
       RABBITMQ_DEFAULT_PASS: password
     ports:
       - "5672:5672"
+      - "1883:1883"
       - "15672:15672"
+    volumes:
+      - ./init/rabbitmq-start.sh:/usr/local/bin/rabbitmq-start.sh:ro
     networks:
       - verdant-network
     healthcheck:
