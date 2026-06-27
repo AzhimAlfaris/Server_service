@@ -1,6 +1,8 @@
 package com.trs.application_service.controller;
 
 import com.trs.application_service.dto.DeviceSettingsRequest;
+import com.trs.application_service.dto.DeviceCommandRequest;
+import com.trs.application_service.dto.DeviceCommandResponse;
 import com.trs.application_service.dto.DeviceSettingsQueryResponse;
 import com.trs.application_service.dto.DeviceSettingsResponse;
 import com.trs.application_service.dto.SensorQueryResponse;
@@ -10,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -54,5 +57,13 @@ public class SensorDataController {
             @Valid @RequestBody DeviceSettingsRequest request) {
         log.info("Request save/update device settings address={}", request.address());
         return ResponseEntity.ok(sensorDataClientService.saveOrUpdateDeviceSettings(authorizationHeader, request));
+    }
+
+    @PostMapping("/command")
+    public ResponseEntity<DeviceCommandResponse> sendManualWateringCommand(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorizationHeader,
+            @Valid @RequestBody DeviceCommandRequest request) {
+        log.info("Request manual watering command address={} duration={}", request.address(), request.duration());
+        return ResponseEntity.ok(sensorDataClientService.sendManualWateringCommand(authorizationHeader, request));
     }
 }

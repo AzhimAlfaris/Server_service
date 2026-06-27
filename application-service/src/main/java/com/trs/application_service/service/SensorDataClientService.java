@@ -2,6 +2,9 @@ package com.trs.application_service.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trs.application_service.client.UserServiceClient;
+import com.trs.application_service.dto.DeviceCommandMessage;
+import com.trs.application_service.dto.DeviceCommandResponse;
+import com.trs.application_service.dto.DeviceCommandRequest;
 import com.trs.application_service.dto.DeviceSettingsRequest;
 import com.trs.application_service.dto.DeviceSettingsItemResponse;
 import com.trs.application_service.dto.DeviceSettingsQueryResponse;
@@ -19,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,6 +33,7 @@ public class SensorDataClientService {
     private final RabbitTemplate rabbitTemplate;
     private final JwtService jwtService;
     private final UserServiceClient userServiceClient;
+    private final DeviceCommandPublisherService deviceCommandPublisherService;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     @Value("${app.rabbitmq.exchange}")
     private String exchangeName;
@@ -70,10 +75,58 @@ public class SensorDataClientService {
         String normalizedSoilType = request.soilType() == null ? null : request.soilType().trim();
 
         log.info("Forwarding device settings update email={} address={}", normalizedEmail, normalizedAddress);
-        return userServiceClient.upsertDeviceSettings(new DeviceSettingsUpsertRequest(
+        DeviceSettingsResponse response = userServiceClient.upsertDeviceSettings(new DeviceSettingsUpsertRequest(
                 normalizedEmail,
                 normalizedAddress,
                 normalizedSoilType));
+        deviceCommandPublisherService.ensureQueue(normalizedAddress);
+        return response;
+    }
+
+    public DeviceCommandResponse sendManualWateringCommand(String authorizationHeader, DeviceCommandRequest request) {
+        String requesterEmail = extractEmail(authorizationHeader);
+        String normalizedRequesterEmail = requesterEmail == null ? null : requesterEmail.trim().toLowerCase(Locale.ROOT);
+        String normalizedAddress = normalizeAddress(request.address());
+        String normalizedCommand = normalizeCommand(request.command());
+        Integer duration = request.duration();
+
+        DeviceSettingsResponse deviceSettings;
+        try {
+            deviceSettings = userServiceClient.getDeviceSettingsByAddress(normalizedAddress);
+        } catch (ResponseStatusException exception) {
+            if (exception.getStatusCode().value() == 404) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Address " + normalizedAddress + " tidak terdaftar di device settings");
+            }
+            throw exception;
+        }
+
+        String registeredEmail = normalizeEmail(deviceSettings.email());
+        if (!registeredEmail.equals(normalizedRequesterEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Email " + normalizedRequesterEmail + " tidak memiliki address " + normalizedAddress);
+        }
+
+        DeviceCommandMessage commandMessage = new DeviceCommandMessage(
+                normalizedRequesterEmail,
+                normalizedAddress,
+                normalizedCommand,
+                duration);
+
+        try {
+            String queueName = deviceCommandPublisherService.publish(commandMessage);
+            log.info("Published manual command address={} queue={} duration={}",
+                    normalizedAddress, queueName, duration);
+            return new DeviceCommandResponse(
+                    "success",
+                    "Perintah manual watering berhasil dikirim",
+                    normalizedRequesterEmail,
+                    normalizedAddress,
+                    queueName);
+        } catch (Exception exception) {
+            log.error("Failed to publish manual command address={}", normalizedAddress, exception);
+            throw new RuntimeException("Gagal mengirim perintah manual: " + exception.getMessage(), exception);
+        }
     }
 
     private SensorQueryResponse requestSensorData(String email, String requestType, int limit) {
@@ -112,4 +165,13 @@ public class SensorDataClientService {
     private String normalizeAddress(String address) {
         return address == null ? null : address.trim().toUpperCase();
     }
+
+    private String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeCommand(String command) {
+        return command == null ? null : command.trim().toUpperCase(Locale.ROOT);
+    }
+
 }

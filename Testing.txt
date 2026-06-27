@@ -39,6 +39,7 @@ Get:
 URL: http://localhost:8081/api/sensor-readings/latest/decalyps@gmail.com
      http://localhost:8081/api/sensor-readings/history/decalyps@gmail.com?limit=5
      http://localhost:8081/api/device-settings/24:0A:C4:82:7D:64
+     http://localhost:8081/api/device-commands/24:0A:C4:82:7D:64
      
 
 
@@ -52,6 +53,13 @@ Contoh data:
 {
   "address": "24:0A:C4:82:7D:64",
   "soil_type": "Kering"
+}
+     http://localhost:8082/api/sensor-data/command (Authorization: Bearer <token>)
+Contoh data:
+{
+  "address": "24:0A:C4:82:7D:64",
+  "command": "PUMP_ON_MANUAL",
+  "duration": 5
 }
 Get:
 URL: http://localhost:8082/api/sensor-data/latest (Authorization: Bearer <token>)

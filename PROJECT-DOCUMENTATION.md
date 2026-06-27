@@ -473,11 +473,13 @@ Nilai penting yang dipakai:
 
 - `sensor.request.queue`
 - `sensor.notification.queue`
+- `device.command.<address>` untuk command manual per device
 
 ### 9.3 Routing key
 
 - `sensor.request`
 - `sensor.notification`
+- `device.command.<address>` untuk command manual per device
 
 ### 9.4 Perilaku penting
 
@@ -783,6 +785,50 @@ Catatan:
 - Endpoint `GET /api/sensor-data/device-settings` dipakai dashboard untuk menampilkan device yang sudah didaftarkan user.
 - Data device diambil dari `user-service`, jadi akan tetap muncul walaupun data sensor dari ESP32 masih kosong.
 
+### POST `/api/sensor-data/command`
+
+Mengirim command manual watering ke device tertentu.
+
+Header:
+
+- `Authorization: Bearer <token>`
+
+Request body:
+
+```json
+{
+  "address": "24:0A:C4:82:7D:64",
+  "command": "PUMP_ON_MANUAL",
+  "duration": 5
+}
+```
+
+Behavior:
+
+- Email diambil dari JWT.
+- `address` divalidasi ke `user-service`.
+- Jika `address` tidak ada, response `400 Bad Request`.
+- Jika owner `address` tidak sama dengan email JWT, response `403 Forbidden`.
+- Jika valid, payload dikirim ke RabbitMQ dengan routing key berbasis address:
+  - contoh `device.command.24.0A.C4.82.7D.64`
+- command disimpan pada queue per address, dengan nama queue yang sama seperti routing key
+- tiap queue device dikonfigurasi sebagai Last-Value Queue:
+  - `x-max-length = 1`
+  - `x-overflow = drop-head`
+  - artinya jika beberapa command masuk saat ESP32 offline, message lama dibuang dan hanya command terbaru yang tersisa untuk address tersebut
+
+Response contoh:
+
+```json
+{
+  "status": "success",
+  "message": "Perintah manual watering berhasil dikirim",
+  "email": "user@example.com",
+  "address": "24:0A:C4:82:7D:64",
+  "routingKey": "device.command.24.0A.C4.82.7D.64"
+}
+```
+
 ## 11.3 `user-service`
 
 Base URL:
@@ -906,6 +952,28 @@ Response:
 Catatan:
 
 - Endpoint ini dipakai internal oleh `application-service` untuk menampilkan daftar device di dashboard.
+
+## 11.4 `microcontroller-service` command bridge
+
+### GET `/api/device-commands/{address}`
+
+Mengambil command manual terakhir yang diterima untuk address tertentu.
+
+Response:
+
+```json
+{
+  "email": "user@example.com",
+  "address": "24:0A:C4:82:7D:64",
+  "command": "PUMP_ON_MANUAL",
+  "duration": 5
+}
+```
+
+Catatan:
+
+- Endpoint ini membantu ESP32 atau client lain memeriksa command terbaru yang sudah masuk ke queue RabbitMQ.
+- Saat endpoint ini dipanggil, microcontroller-service akan mengambil pesan terbaru dari queue milik address tersebut jika masih ada di RabbitMQ.
 
 ## 11.4 `security-service`
 
@@ -1167,4 +1235,4 @@ Project ini sekarang terdiri dari:
 - `user-service` untuk menyimpan user dan validasi email
 - `security-service` untuk register/login dan penerbitan JWT token
 
-Database dipakai oleh `microcontroller-service` dan `user-service`, sementara observability sudah tersedia lewat Actuator, Prometheus, Grafana, dan ELK stack. test
+Database dipakai oleh `microcontroller-service` dan `user-service`, sementara observability sudah tersedia lewat Actuator, Prometheus, Grafana, dan ELK stack.

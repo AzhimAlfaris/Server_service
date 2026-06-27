@@ -4,11 +4,14 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.TopicExchange;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 
 @Configuration
 public class RabbitMQConfig {
@@ -16,6 +19,11 @@ public class RabbitMQConfig {
     @Bean
     public DirectExchange sensorExchange(@Value("${app.rabbitmq.exchange:sensor.exchange}") String exchangeName) {
         return new DirectExchange(exchangeName);
+    }
+
+    @Bean
+    public TopicExchange commandExchange(@Value("${app.rabbitmq.command-exchange:device.command.exchange}") String exchangeName) {
+        return new TopicExchange(exchangeName);
     }
 
     @Bean
@@ -38,5 +46,10 @@ public class RabbitMQConfig {
     @Bean
     public RabbitTemplate rabbitTemplate(org.springframework.amqp.rabbit.connection.ConnectionFactory connectionFactory) {
         return new RabbitTemplate(connectionFactory);
+    }
+
+    @Bean
+    public RabbitAdmin rabbitAdmin(ConnectionFactory connectionFactory) {
+        return new RabbitAdmin(connectionFactory);
     }
 }

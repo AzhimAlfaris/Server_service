@@ -34,6 +34,17 @@ public class UserServiceClient {
                 .block();
     }
 
+    public DeviceSettingsResponse getDeviceSettingsByAddress(String address) {
+        return userServiceWebClient.get()
+                .uri("/api/users/device-settings/{address}", address)
+                .retrieve()
+                .onStatus(status -> status.value() == 404,
+                        response -> response.bodyToMono(String.class)
+                                .map(body -> new ResponseStatusException(HttpStatus.NOT_FOUND, body)))
+                .bodyToMono(DeviceSettingsResponse.class)
+                .block();
+    }
+
     public List<DeviceSettingsResponse> getDeviceSettingsByEmail(String email) {
         return userServiceWebClient.get()
                 .uri(uriBuilder -> uriBuilder
