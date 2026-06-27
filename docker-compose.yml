@@ -44,12 +44,34 @@ services:
       retries: 10
       start_period: 20s
 
+  eureka-server:
+    build:
+      context: ./eureka-server
+    container_name: eureka-server
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    expose:
+      - "8761"
+    networks:
+      - verdant-network
+    depends_on:
+      - logstash
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8761/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
   microcontroller-service:
     build:
       context: ./microcontroller-service
     container_name: microcontroller-service
     restart: unless-stopped
     depends_on:
+      eureka-server:
+        condition: service_healthy
       verdant-mysql:
         condition: service_healthy
       rabbitmq:
@@ -62,7 +84,7 @@ services:
       DB_NAME_MICRO: microcontroller-service-db
       DB_USERNAME: root
       DB_PASSWORD: root
-      USERSERVICE_BASE_URL: http://user-service:8083
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: user
@@ -84,6 +106,8 @@ services:
     container_name: application-service
     restart: unless-stopped
     depends_on:
+      eureka-server:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       microcontroller-service:
@@ -95,7 +119,7 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: user
       RABBITMQ_PASSWORD: password
-      USERSERVICE_BASE_URL: http://user-service:8083
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
       MAIL_HOST: smtp.gmail.com
       MAIL_PORT: 587
       MAIL_USERNAME: anasrudi048@gmail.com
@@ -118,6 +142,8 @@ services:
     container_name: user-service
     restart: unless-stopped
     depends_on:
+      eureka-server:
+        condition: service_healthy
       verdant-mysql:
         condition: service_healthy
       logstash:
@@ -128,6 +154,7 @@ services:
       DB_NAME_USER: user_service_db
       DB_USERNAME: root
       DB_PASSWORD: root
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
       LOGSTASH_HOST: verdant-logstash
       JAVA_OPTS: -Xms128m -Xmx256m -XX:+UseSerialGC
     ports:
@@ -145,12 +172,14 @@ services:
     container_name: security-service
     restart: unless-stopped
     depends_on:
+      eureka-server:
+        condition: service_healthy
       user-service:
         condition: service_started
       logstash:
         condition: service_started
     environment:
-      USERSERVICE_BASE_URL: http://user-service:8083
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
       JWT_SECRET: Jcau6mPiMUpCK3NflMzbvcgr0oVkILNhg7sb29Kh0yP
       JWT_EXPIRATION: 86400000
       LOGSTASH_HOST: verdant-logstash

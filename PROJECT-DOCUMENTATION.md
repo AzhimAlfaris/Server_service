@@ -2,8 +2,9 @@
 
 Dokumen ini menjelaskan kondisi terbaru project backend monitoring sensor berbasis Spring Boot, MySQL, RabbitMQ, JWT, serta stack observability Prometheus/Grafana dan ELK.
 
-Project ini sekarang terdiri dari empat service:
+Project ini sekarang terdiri dari lima service:
 
+- `eureka-server`
 - `microcontroller-service`
 - `application-service`
 - `user-service`
@@ -19,6 +20,11 @@ Selain itu, repository ini juga memuat:
 ## 1. Ringkasan Cepat
 
 ### Build dan test
+
+```powershell
+cd eureka-server
+.\mvnw.cmd test
+```
 
 ```powershell
 cd microcontroller-service
@@ -43,6 +49,11 @@ cd security-service
 ### Build jar
 
 ```powershell
+cd eureka-server
+.\mvnw.cmd -DskipTests package
+```
+
+```powershell
 cd microcontroller-service
 .\mvnw.cmd -DskipTests package
 ```
@@ -63,6 +74,11 @@ cd security-service
 ```
 
 ### Jalankan lokal
+
+```powershell
+cd eureka-server
+.\mvnw.cmd spring-boot:run
+```
 
 ```powershell
 cd microcontroller-service
@@ -107,21 +123,38 @@ Alur utamanya sekarang:
 2. `security-service` menyimpan user ke `user-service` dan menghasilkan JWT.
 3. `application-service` menerima request `latest` dan `history` menggunakan Bearer token di header HTTP.
 4. `application-service` memvalidasi token tersebut dan mengambil email dari token.
-5. `application-service` meneruskan request data sensor ke `microcontroller-service` melalui RabbitMQ.
-6. `microcontroller-service` menyimpan data sensor ke MySQL.
-7. Saat `microcontroller-service` menerima data baru, email pada body request divalidasi dulu ke `user-service`.
-8. Jika valid, `microcontroller-service` mem-publish event notifikasi ke RabbitMQ.
-9. `application-service` menerima event tersebut dan mengirim email ke alamat user yang ada di payload.
-10. Client juga bisa menyimpan atau membaca `device-settings` melalui `application-service` dan `user-service`.
-11. Client bisa mengirim command manual watering lewat `application-service`, lalu command diteruskan ke RabbitMQ per address dan per pot.
-12. Jika user lupa password, client dapat mengecek email lewat `security-service`, lalu melakukan reset password melalui `security-service`.
-13. `security-service` memvalidasi input reset password, meng-hash password baru, lalu meneruskan update ke `user-service`.
-14. Semua service mengirim log ke Logstash, lalu ke Elasticsearch, dan ditampilkan di Kibana.
-15. Semua service juga mengekspor metrics ke Prometheus, lalu bisa dilihat di Grafana.
+5. Semua service lama mendaftar ke `eureka-server` sebagai service registry.
+6. `application-service` meneruskan request data sensor ke `microcontroller-service` melalui RabbitMQ.
+7. `microcontroller-service` menyimpan data sensor ke MySQL.
+8. Saat `microcontroller-service` menerima data baru, email pada body request divalidasi dulu ke `user-service`.
+9. Jika valid, `microcontroller-service` mem-publish event notifikasi ke RabbitMQ.
+10. `application-service` menerima event tersebut dan mengirim email ke alamat user yang ada di payload.
+11. Client juga bisa menyimpan atau membaca `device-settings` melalui `application-service` dan `user-service`.
+12. Client bisa mengirim command manual watering lewat `application-service`, lalu command diteruskan ke RabbitMQ per address dan per pot.
+13. Jika user lupa password, client dapat mengecek email lewat `security-service`, lalu melakukan reset password melalui `security-service`.
+14. `security-service` memvalidasi input reset password, meng-hash password baru, lalu meneruskan update ke `user-service`.
+15. Semua service mengirim log ke Logstash, lalu ke Elasticsearch, dan ditampilkan di Kibana.
+16. Semua service juga mengekspor metrics ke Prometheus, lalu bisa dilihat di Grafana.
 
 ## 3. Arsitektur
 
-### 3.1 `microcontroller-service`
+### 3.1 `eureka-server`
+
+Tanggung jawab:
+
+- menjadi service registry untuk semua service di Verdant Flow
+- menerima registrasi dari `microcontroller-service`, `application-service`, `user-service`, dan `security-service`
+- menyediakan halaman GUI Eureka untuk melihat status instance service
+- berjalan di port `8761`
+- memakai `@EnableEurekaServer`
+
+Catatan:
+
+- `eureka.client.register-with-eureka=false`
+- `eureka.client.fetch-registry=false`
+- `eureka.server.enable-self-preservation=false` pada environment ini sehingga GUI dapat menampilkan peringatan merah tentang self-preservation mode
+
+### 3.2 `microcontroller-service`
 
 Tanggung jawab:
 
@@ -133,7 +166,7 @@ Tanggung jawab:
 - mengirim log aplikasi ke Logstash
 - mengekspor metrics ke Prometheus
 
-### 3.2 `application-service`
+### 3.3 `application-service`
 
 Tanggung jawab:
 
@@ -151,7 +184,7 @@ Tanggung jawab:
 - mengirim log aplikasi ke Logstash
 - mengekspor metrics ke Prometheus
 
-### 3.3 `user-service`
+### 3.4 `user-service`
 
 Tanggung jawab:
 
@@ -165,7 +198,7 @@ Tanggung jawab:
 - menyediakan log request ke Logstash
 - mengekspor metrics ke Prometheus
 
-### 3.4 `security-service`
+### 3.5 `security-service`
 
 Tanggung jawab:
 
@@ -178,8 +211,9 @@ Tanggung jawab:
 - menyediakan log request ke Logstash
 - mengekspor metrics ke Prometheus
 
-### 3.5 Komponen Infrastruktur
+### 3.6 Komponen Infrastruktur
 
+- `eureka-server` sebagai service registry untuk discovery antar service
 - MySQL untuk `microcontroller-service` dan `user-service`
 - RabbitMQ sebagai message broker
 - Gmail SMTP untuk email notifikasi
@@ -320,7 +354,11 @@ Index log yang dipakai oleh Logstash saat ini:
   - `GlobalExceptionHandler`
   - `ResourceNotFoundException`
 
-### 6.3 `user-service`
+### 6.3 `eureka-server`
+
+- `EurekaServerApplication`
+
+### 6.4 `user-service`
 
 - `controller`
   - `UserController`
@@ -341,7 +379,7 @@ Index log yang dipakai oleh Logstash saat ini:
 - `handler`
   - `GlobalExceptionHandler`
 
-### 6.4 `security-service`
+### 6.5 `security-service`
 
 - `controller`
   - `AuthController`
@@ -367,6 +405,7 @@ Index log yang dipakai oleh Logstash saat ini:
 
 ### 7.1 Port default
 
+- `eureka-server` -> `8761`
 - `microcontroller-service` -> `8081`
 - `application-service` -> `8082`
 - `user-service` -> `8083`
@@ -378,8 +417,12 @@ Nilai penting yang dipakai:
 
 - `spring.application.name=application-service`
 - `server.port=8082`
+- `eureka.client.service-url.defaultZone=${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://localhost:8761/eureka/}`
+- `eureka.client.register-with-eureka=true`
+- `eureka.client.fetch-registry=true`
+- `eureka.instance.prefer-ip-address=true`
+- `eureka.instance.instance-id=${spring.application.name}:${server.port}`
 - `jwt.secret=...`
-- `userservice.base-url=${USERSERVICE_BASE_URL:http://localhost:8083}`
 - `spring.rabbitmq.host=${RABBITMQ_HOST:localhost}`
 - `spring.rabbitmq.port=${RABBITMQ_PORT:5672}`
 - `spring.rabbitmq.username=${RABBITMQ_USERNAME:user}`
@@ -412,7 +455,11 @@ Nilai penting yang dipakai:
 
 - `spring.application.name=microcontroller-service`
 - `server.port=8081`
-- `userservice.base-url=${USERSERVICE_BASE_URL:http://localhost:8083}`
+- `eureka.client.service-url.defaultZone=${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://localhost:8761/eureka/}`
+- `eureka.client.register-with-eureka=true`
+- `eureka.client.fetch-registry=true`
+- `eureka.instance.prefer-ip-address=true`
+- `eureka.instance.instance-id=${spring.application.name}:${server.port}`
 - `spring.datasource.url=jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME_MICRO:microcontroller-service-db}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Jakarta`
 - `spring.datasource.username=${DB_USERNAME:root}`
 - `spring.datasource.password=${DB_PASSWORD:root}`
@@ -431,12 +478,29 @@ Nilai penting yang dipakai:
 - `management.endpoints.web.exposure.include=health,info,prometheus`
 - `management.metrics.tags.application=${spring.application.name}`
 
-### 7.4 `user-service/src/main/resources/application.properties`
+### 7.4 `eureka-server/src/main/resources/application.properties`
+
+Nilai penting yang dipakai:
+
+- `spring.application.name=eureka-server`
+- `server.port=8761`
+- `eureka.client.register-with-eureka=false`
+- `eureka.client.fetch-registry=false`
+- `eureka.server.enable-self-preservation=false`
+- `management.endpoints.web.exposure.include=health,info,prometheus`
+- `management.metrics.tags.application=${spring.application.name}`
+
+### 7.5 `user-service/src/main/resources/application.properties`
 
 Nilai penting yang dipakai:
 
 - `spring.application.name=user-service`
 - `server.port=8083`
+- `eureka.client.service-url.defaultZone=${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://localhost:8761/eureka/}`
+- `eureka.client.register-with-eureka=true`
+- `eureka.client.fetch-registry=true`
+- `eureka.instance.prefer-ip-address=true`
+- `eureka.instance.instance-id=${spring.application.name}:${server.port}`
 - `spring.datasource.url=jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME_USER:user_service_db}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Jakarta`
 - `spring.datasource.username=${DB_USERNAME:root}`
 - `spring.datasource.password=${DB_PASSWORD:root}`
@@ -448,13 +512,17 @@ Nilai penting yang dipakai:
 - `management.endpoints.web.exposure.include=health,info,prometheus`
 - `management.metrics.tags.application=${spring.application.name}`
 
-### 7.5 `security-service/src/main/resources/application.properties`
+### 7.6 `security-service/src/main/resources/application.properties`
 
 Nilai penting yang dipakai:
 
 - `spring.application.name=security-service`
 - `server.port=8084`
-- `userservice.base-url=${USERSERVICE_BASE_URL:http://localhost:8083}`
+- `eureka.client.service-url.defaultZone=${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://localhost:8761/eureka/}`
+- `eureka.client.register-with-eureka=true`
+- `eureka.client.fetch-registry=true`
+- `eureka.instance.prefer-ip-address=true`
+- `eureka.instance.instance-id=${spring.application.name}:${server.port}`
 - `jwt.secret=...`
 - `jwt.expiration=86400000`
 - `logstash.host=${LOGSTASH_HOST:localhost}`
@@ -1178,6 +1246,7 @@ Catatan:
 
 `docker-compose.yml` saat ini menjalankan service berikut:
 
+- `eureka-server`
 - `verdant-mysql`
 - `rabbitmq`
 - `microcontroller-service`
@@ -1192,6 +1261,7 @@ Catatan:
 
 ### 12.1 Port di Docker
 
+- Eureka -> `8761`
 - MySQL -> `3306`
 - RabbitMQ AMQP -> `5672`
 - RabbitMQ MQTT -> `1883`
@@ -1214,6 +1284,11 @@ Semua container menggunakan network:
 
 ### 12.3 Environment variable di Docker
 
+#### `eureka-server`
+
+- Tidak ada environment variable khusus
+- Port internal dan eksternal memakai `8761`
+
 #### `microcontroller-service`
 
 - `DB_HOST=verdant-mysql`
@@ -1221,11 +1296,11 @@ Semua container menggunakan network:
 - `DB_NAME_MICRO=microcontroller-service-db`
 - `DB_USERNAME=root`
 - `DB_PASSWORD=root`
-- `USERSERVICE_BASE_URL=http://user-service:8083`
 - `RABBITMQ_HOST=rabbitmq`
 - `RABBITMQ_PORT=5672`
 - `RABBITMQ_USERNAME=user`
 - `RABBITMQ_PASSWORD=password`
+- `EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/`
 - `LOGSTASH_HOST=verdant-logstash`
 
 #### `application-service`
@@ -1234,6 +1309,7 @@ Semua container menggunakan network:
 - `RABBITMQ_PORT=5672`
 - `RABBITMQ_USERNAME=user`
 - `RABBITMQ_PASSWORD=password`
+- `EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/`
 - `MAIL_HOST=smtp.gmail.com`
 - `MAIL_PORT=587`
 - `MAIL_USERNAME=anasrudi048@gmail.com`
@@ -1248,19 +1324,22 @@ Semua container menggunakan network:
 - `DB_NAME_USER=user_service_db`
 - `DB_USERNAME=root`
 - `DB_PASSWORD=root`
+- `EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/`
 - `LOGSTASH_HOST=verdant-logstash`
 
 #### `security-service`
 
-- `USERSERVICE_BASE_URL=http://user-service:8083`
 - `JWT_SECRET=...`
 - `JWT_EXPIRATION=86400000`
+- `EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/`
 - `LOGSTASH_HOST=verdant-logstash`
 
 ### 12.4 Catatan penting Docker
 
 - Di dalam container, `localhost` tidak dipakai untuk koneksi antarservice.
 - Gunakan nama service container seperti `verdant-mysql`, `rabbitmq`, `user-service`, dan `verdant-logstash`.
+- Saat GUI Eureka menampilkan peringatan merah tentang self-preservation mode, itu sesuai konfigurasi saat ini karena `eureka.server.enable-self-preservation=false`.
+- `eureka-server` memakai healthcheck internal pada endpoint `/actuator/health`, dan service client menunggu status `healthy` sebelum startup.
 - RabbitMQ container mengaktifkan plugin `rabbitmq_mqtt` saat startup.
 - ESP32 atau MQTT client dapat subscribe langsung melalui port `1883`.
 - Startup RabbitMQ di Docker juga memasang policy LVQ `^mqtt-subscription-` secara otomatis lewat [`init/rabbitmq-start.sh`](./init/rabbitmq-start.sh).
@@ -1278,6 +1357,10 @@ Semua container menggunakan network:
 - `application-service:8082/actuator/prometheus`
 - `user-service:8083/actuator/prometheus`
 - `security-service:8084/actuator/prometheus`
+
+Catatan:
+
+- `eureka-server` sudah mengekspos endpoint actuator di port `8761`, tetapi saat ini belum dimasukkan ke `prometheus.yml`.
 
 ### 13.2 Grafana
 
@@ -1319,6 +1402,9 @@ Langkah singkat:
 
 Semua service mengekspos metrics ke:
 
+- `http://localhost:8761/actuator/health`
+- `http://localhost:8761/actuator/info`
+- `http://localhost:8761/actuator/prometheus`
 - `http://localhost:8081/actuator/health`
 - `http://localhost:8081/actuator/info`
 - `http://localhost:8081/actuator/prometheus`
