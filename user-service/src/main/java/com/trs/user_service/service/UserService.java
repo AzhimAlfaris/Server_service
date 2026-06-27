@@ -1,5 +1,6 @@
 package com.trs.user_service.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -61,10 +62,10 @@ public class UserService {
     public DeviceSettingsResponse saveOrUpdateDeviceSettings(DeviceSettingsRequest request) {
         String normalizedEmail = normalizeEmail(request.email());
         String normalizedAddress = normalizeAddress(request.address());
-        String normalizedSoilType = normalizeValue(request.soilType());
+        List<String> normalizedSoilTypes = normalizeSoilTypes(request.soilTypes());
 
         DeviceSetting deviceSetting = deviceSettingRepository.findByAddress(normalizedAddress)
-                .orElseGet(() -> new DeviceSetting(null, normalizedEmail, normalizedAddress, normalizedSoilType));
+                .orElseGet(() -> new DeviceSetting(null, normalizedEmail, normalizedAddress, null, null));
 
         if (deviceSetting.getId() != null && !deviceSetting.getEmail().equals(normalizedEmail)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -73,7 +74,7 @@ public class UserService {
 
         deviceSetting.setEmail(normalizedEmail);
         deviceSetting.setAddress(normalizedAddress);
-        deviceSetting.setSoilType(normalizedSoilType);
+        deviceSetting.setSoilTypes(normalizedSoilTypes);
 
         DeviceSetting saved = deviceSettingRepository.save(deviceSetting);
         return toResponse(saved);
@@ -106,12 +107,30 @@ public class UserService {
         return value == null ? null : value.trim();
     }
 
+    private List<String> normalizeSoilTypes(List<String> soilTypes) {
+        if (soilTypes == null || soilTypes.size() != 3) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "soil_types harus berisi tepat 3 item");
+        }
+
+        List<String> normalized = new ArrayList<>(soilTypes.size());
+        for (int index = 0; index < soilTypes.size(); index++) {
+            String soilType = normalizeValue(soilTypes.get(index));
+            if (soilType == null || soilType.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "soil_types item ke-" + (index + 1) + " tidak boleh kosong");
+            }
+            normalized.add(soilType);
+        }
+        return normalized;
+    }
+
     private DeviceSettingsResponse toResponse(DeviceSetting deviceSetting) {
         return new DeviceSettingsResponse(
                 deviceSetting.getId(),
                 deviceSetting.getEmail(),
                 deviceSetting.getAddress(),
-                deviceSetting.getSoilType());
+                deviceSetting.getSoilTypes());
     }
 
 }

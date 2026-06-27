@@ -659,7 +659,11 @@ Response:
 ```json
 {
   "email": "user@example.com",
-  "soil_type": "Clay"
+  "soil_types": [
+    "Clay",
+    "Sedang",
+    "Basah"
+  ]
 }
 ```
 
@@ -736,11 +740,19 @@ Response:
   "devices": [
     {
       "address": "24:0A:C4:82:7D:64",
-      "soil_type": "Kering"
+      "soil_types": [
+        "Kering",
+        "Sedang",
+        "Basah"
+      ]
     },
     {
       "address": "24:0A:C4:82:7D:65",
-      "soil_type": "Lembab"
+      "soil_types": [
+        "Lembab",
+        "Sedang",
+        "Basah"
+      ]
     }
   ]
 }
@@ -759,14 +771,18 @@ Request body:
 ```json
 {
   "address": "24:0A:C4:82:7D:64",
-  "soil_type": "Clay"
+  "soil_types": [
+    "Clay",
+    "Sedang",
+    "Basah"
+  ]
 }
 ```
 
 Behavior:
 
 - Email diambil dari JWT authentication context.
-- `application-service` meneruskan `email`, `address`, dan `soil_type` ke `user-service`.
+- `application-service` meneruskan `email`, `address`, dan `soil_types` ke `user-service`.
 - `address` yang sama hanya boleh dimiliki satu email.
 
 Response contoh:
@@ -776,7 +792,11 @@ Response contoh:
   "id": 1,
   "email": "user@example.com",
   "address": "24:0A:C4:82:7D:64",
-  "soil_type": "Clay"
+  "soil_types": [
+    "Clay",
+    "Sedang",
+    "Basah"
+  ]
 }
 ```
 
@@ -897,7 +917,11 @@ Request body:
 {
   "email": "user@example.com",
   "address": "24:0A:C4:82:7D:64",
-  "soil_type": "Clay"
+  "soil_types": [
+    "Clay",
+    "Sedang",
+    "Basah"
+  ]
 }
 ```
 
@@ -908,7 +932,11 @@ Response:
   "id": 1,
   "email": "user@example.com",
   "address": "24:0A:C4:82:7D:64",
-  "soil_type": "Clay"
+  "soil_types": [
+    "Clay",
+    "Sedang",
+    "Basah"
+  ]
 }
 ```
 
@@ -923,7 +951,11 @@ Response:
   "id": 1,
   "email": "user@example.com",
   "address": "24:0A:C4:82:7D:64",
-  "soil_type": "Clay"
+  "soil_types": [
+    "Clay",
+    "Sedang",
+    "Basah"
+  ]
 }
 ```
 
@@ -944,7 +976,11 @@ Response:
     "id": 1,
     "email": "user@example.com",
     "address": "24:0A:C4:82:7D:64",
-    "soil_type": "Kering"
+    "soil_types": [
+      "Kering",
+      "Sedang",
+      "Basah"
+    ]
   }
 ]
 ```

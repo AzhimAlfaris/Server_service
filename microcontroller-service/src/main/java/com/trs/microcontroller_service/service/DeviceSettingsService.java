@@ -23,7 +23,7 @@ public class DeviceSettingsService {
             throw new ResourceNotFoundException("Device settings tidak ditemukan untuk address: " + normalizeAddress(address));
         }
 
-        return new DeviceSettingsPublicResponse(response.email(), response.soilType());
+        return new DeviceSettingsPublicResponse(response.email(), response.soilTypes());
     }
 
     private String normalizeAddress(String address) {

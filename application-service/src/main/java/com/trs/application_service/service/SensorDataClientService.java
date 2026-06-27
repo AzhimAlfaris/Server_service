@@ -58,7 +58,7 @@ public class SensorDataClientService {
         List<DeviceSettingsItemResponse> devices = deviceSettings == null ? List.of() : deviceSettings.stream()
                 .map(device -> new DeviceSettingsItemResponse(
                         device.address(),
-                        device.soilType()))
+                        device.soilTypes()))
                 .collect(Collectors.toList());
 
         return new DeviceSettingsQueryResponse(
@@ -72,13 +72,13 @@ public class SensorDataClientService {
         String email = extractEmail(authorizationHeader);
         String normalizedEmail = email == null ? null : email.trim().toLowerCase();
         String normalizedAddress = normalizeAddress(request.address());
-        String normalizedSoilType = request.soilType() == null ? null : request.soilType().trim();
+        List<String> normalizedSoilTypes = normalizeSoilTypes(request.soilTypes());
 
         log.info("Forwarding device settings update email={} address={}", normalizedEmail, normalizedAddress);
         DeviceSettingsResponse response = userServiceClient.upsertDeviceSettings(new DeviceSettingsUpsertRequest(
                 normalizedEmail,
                 normalizedAddress,
-                normalizedSoilType));
+                normalizedSoilTypes));
         deviceCommandPublisherService.ensureQueue(normalizedAddress);
         return response;
     }
@@ -172,6 +172,23 @@ public class SensorDataClientService {
 
     private String normalizeCommand(String command) {
         return command == null ? null : command.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private List<String> normalizeSoilTypes(List<String> soilTypes) {
+        if (soilTypes == null || soilTypes.size() != 3) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "soil_types harus berisi tepat 3 item");
+        }
+
+        List<String> normalized = new java.util.ArrayList<>(soilTypes.size());
+        for (int index = 0; index < soilTypes.size(); index++) {
+            String soilType = soilTypes.get(index) == null ? null : soilTypes.get(index).trim();
+            if (soilType == null || soilType.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "soil_types item ke-" + (index + 1) + " tidak boleh kosong");
+            }
+            normalized.add(soilType);
+        }
+        return normalized;
     }
 
 }

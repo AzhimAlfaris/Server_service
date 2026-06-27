@@ -52,7 +52,11 @@ URL: http://localhost:8082/api/sensor-data/device-settings (Authorization: Beare
 Contoh data:
 {
   "address": "24:0A:C4:82:7D:64",
-  "soil_type": "Kering"
+  "soil_types": [
+    "Kering",
+    "Sedang",
+    "Basah"
+  ]
 }
      http://localhost:8082/api/sensor-data/command (Authorization: Bearer <token>)
 Contoh data:
@@ -70,7 +74,11 @@ URL: http://localhost:8082/api/sensor-data/device-settings (Authorization: Beare
 Contoh data:
 {
   "address": "24:0A:C4:82:7D:64",
-  "soil_type": "Kering"
+  "soil_types": [
+    "Kering",
+    "Sedang",
+    "Basah"
+  ]
 }
 
 
