@@ -1,10 +1,11 @@
 # Verdant Flow Service Server Documentation
 
-Dokumen ini menjelaskan kondisi terbaru project backend monitoring sensor berbasis Spring Boot, MySQL, RabbitMQ, JWT, serta stack observability Prometheus/Grafana dan ELK.
+Dokumen ini menjelaskan kondisi terbaru project backend monitoring sensor berbasis Spring Boot, MySQL, RabbitMQ, JWT, Eureka Service Registry, API Gateway, serta stack observability Prometheus/Grafana dan ELK.
 
-Project ini sekarang terdiri dari lima service:
+Project ini sekarang terdiri dari enam service:
 
 - `eureka-server`
+- `gateway-service`
 - `microcontroller-service`
 - `application-service`
 - `user-service`
@@ -12,6 +13,8 @@ Project ini sekarang terdiri dari lima service:
 
 Selain itu, repository ini juga memuat:
 
+- `gateway-service` sebagai entry point HTTP utama
+- `eureka-server` sebagai service registry
 - `docker-compose.yml` untuk menjalankan seluruh stack
 - `init/` untuk inisialisasi database
 - `prometheus.yml` untuk scraping metrics
@@ -23,6 +26,11 @@ Selain itu, repository ini juga memuat:
 
 ```powershell
 cd eureka-server
+.\mvnw.cmd test
+```
+
+```powershell
+cd gateway-service
 .\mvnw.cmd test
 ```
 
@@ -54,6 +62,11 @@ cd eureka-server
 ```
 
 ```powershell
+cd gateway-service
+.\mvnw.cmd -DskipTests package
+```
+
+```powershell
 cd microcontroller-service
 .\mvnw.cmd -DskipTests package
 ```
@@ -77,6 +90,11 @@ cd security-service
 
 ```powershell
 cd eureka-server
+.\mvnw.cmd spring-boot:run
+```
+
+```powershell
+cd gateway-service
 .\mvnw.cmd spring-boot:run
 ```
 
@@ -121,20 +139,22 @@ Alur utamanya sekarang:
 
 1. User mendaftar dan login melalui `security-service`.
 2. `security-service` menyimpan user ke `user-service` dan menghasilkan JWT.
-3. `application-service` menerima request `latest` dan `history` menggunakan Bearer token di header HTTP.
-4. `application-service` memvalidasi token tersebut dan mengambil email dari token.
-5. Semua service lama mendaftar ke `eureka-server` sebagai service registry.
-6. `application-service` meneruskan request data sensor ke `microcontroller-service` melalui RabbitMQ.
-7. `microcontroller-service` menyimpan data sensor ke MySQL.
-8. Saat `microcontroller-service` menerima data baru, email pada body request divalidasi dulu ke `user-service`.
-9. Jika valid, `microcontroller-service` mem-publish event notifikasi ke RabbitMQ.
-10. `application-service` menerima event tersebut dan mengirim email ke alamat user yang ada di payload.
-11. Client juga bisa menyimpan atau membaca `device-settings` melalui `application-service` dan `user-service`.
-12. Client bisa mengirim command manual watering lewat `application-service`, lalu command diteruskan ke RabbitMQ per address dan per pot.
-13. Jika user lupa password, client dapat mengecek email lewat `security-service`, lalu melakukan reset password melalui `security-service`.
-14. `security-service` memvalidasi input reset password, meng-hash password baru, lalu meneruskan update ke `user-service`.
-15. Semua service mengirim log ke Logstash, lalu ke Elasticsearch, dan ditampilkan di Kibana.
-16. Semua service juga mengekspor metrics ke Prometheus, lalu bisa dilihat di Grafana.
+3. `gateway-service` menerima request dari client di port `8080` dan meneruskan ke service tujuan berdasarkan route yang terdaftar di Eureka.
+4. Client juga masih bisa memanggil service lama secara langsung lewat port masing-masing jika diperlukan.
+5. `application-service` menerima request `latest` dan `history` menggunakan Bearer token di header HTTP.
+6. `application-service` memvalidasi token tersebut dan mengambil email dari token.
+7. Semua service aplikasi mendaftar ke `eureka-server` sebagai service registry.
+8. `application-service` meneruskan request data sensor ke `microcontroller-service` melalui RabbitMQ.
+9. `microcontroller-service` menyimpan data sensor ke MySQL.
+10. Saat `microcontroller-service` menerima data baru, email pada body request divalidasi dulu ke `user-service`.
+11. Jika valid, `microcontroller-service` mem-publish event notifikasi ke RabbitMQ.
+12. `application-service` menerima event tersebut dan mengirim email ke alamat user yang ada di payload.
+13. Client juga bisa menyimpan atau membaca `device-settings` melalui `application-service` dan `user-service`.
+14. Client bisa mengirim command manual watering lewat `gateway-service` atau `application-service`, lalu command diteruskan ke RabbitMQ per address dan per pot.
+15. Jika user lupa password, client dapat mengecek email lewat `gateway-service` atau `security-service`, lalu melakukan reset password melalui `security-service`.
+16. `security-service` memvalidasi input reset password, meng-hash password baru, lalu meneruskan update ke `user-service`.
+17. Semua service mengirim log ke Logstash, lalu ke Elasticsearch, dan ditampilkan di Kibana.
+18. Semua service juga mengekspor metrics ke Prometheus, lalu bisa dilihat di Grafana.
 
 ## 3. Arsitektur
 
@@ -154,7 +174,29 @@ Catatan:
 - `eureka.client.fetch-registry=false`
 - `eureka.server.enable-self-preservation=false` pada environment ini sehingga GUI dapat menampilkan peringatan merah tentang self-preservation mode
 
-### 3.2 `microcontroller-service`
+### 3.2 `gateway-service`
+
+Tanggung jawab:
+
+- menjadi entry point HTTP utama untuk client pada port `8080`
+- merutekan request ke service tujuan menggunakan `lb://` melalui Eureka
+- menyediakan akses terpadu ke endpoint `auth`, `sensor-data`, `sensor-readings`, `device-settings`, dan `users`
+- tetap tidak menyimpan database sendiri
+- berjalan sebagai Spring Cloud Gateway berbasis WebFlux
+- mendaftarkan dirinya ke Eureka agar bisa terlihat di dashboard registry
+- mengirim log aplikasi ke Logstash
+- mengekspor metrics ke Prometheus
+
+Catatan route:
+
+- `/auth/**` -> `security-service`
+- `/api/auth/**` -> `security-service`
+- `/api/users/**` -> `user-service`
+- `/api/sensor-data/**` -> `application-service`
+- `/api/sensor-readings/**` -> `microcontroller-service`
+- `/api/device-settings/**` -> `microcontroller-service`
+
+### 3.3 `microcontroller-service`
 
 Tanggung jawab:
 
@@ -166,7 +208,7 @@ Tanggung jawab:
 - mengirim log aplikasi ke Logstash
 - mengekspor metrics ke Prometheus
 
-### 3.3 `application-service`
+### 3.4 `application-service`
 
 Tanggung jawab:
 
@@ -184,7 +226,7 @@ Tanggung jawab:
 - mengirim log aplikasi ke Logstash
 - mengekspor metrics ke Prometheus
 
-### 3.4 `user-service`
+### 3.5 `user-service`
 
 Tanggung jawab:
 
@@ -198,7 +240,7 @@ Tanggung jawab:
 - menyediakan log request ke Logstash
 - mengekspor metrics ke Prometheus
 
-### 3.5 `security-service`
+### 3.6 `security-service`
 
 Tanggung jawab:
 
@@ -211,9 +253,10 @@ Tanggung jawab:
 - menyediakan log request ke Logstash
 - mengekspor metrics ke Prometheus
 
-### 3.6 Komponen Infrastruktur
+### 3.7 Komponen Infrastruktur
 
 - `eureka-server` sebagai service registry untuk discovery antar service
+- `gateway-service` sebagai reverse proxy dan entry point HTTP utama
 - MySQL untuk `microcontroller-service` dan `user-service`
 - RabbitMQ sebagai message broker
 - Gmail SMTP untuk email notifikasi
@@ -320,7 +363,15 @@ Index log yang dipakai oleh Logstash saat ini:
   - `GlobalExceptionHandler`
   - `ResourceNotFoundException`
 
-### 6.2 `microcontroller-service`
+### 6.2 `gateway-service`
+
+- `GatewayServiceApplication`
+- `resources`
+  - `application.yml`
+  - `application.properties`
+- `Dockerfile`
+
+### 6.3 `microcontroller-service`
 
 - `controller`
   - `DeviceSettingsController`
@@ -354,11 +405,11 @@ Index log yang dipakai oleh Logstash saat ini:
   - `GlobalExceptionHandler`
   - `ResourceNotFoundException`
 
-### 6.3 `eureka-server`
+### 6.4 `eureka-server`
 
 - `EurekaServerApplication`
 
-### 6.4 `user-service`
+### 6.5 `user-service`
 
 - `controller`
   - `UserController`
@@ -379,7 +430,7 @@ Index log yang dipakai oleh Logstash saat ini:
 - `handler`
   - `GlobalExceptionHandler`
 
-### 6.5 `security-service`
+### 6.6 `security-service`
 
 - `controller`
   - `AuthController`
@@ -406,12 +457,40 @@ Index log yang dipakai oleh Logstash saat ini:
 ### 7.1 Port default
 
 - `eureka-server` -> `8761`
+- `gateway-service` -> `8080`
 - `microcontroller-service` -> `8081`
 - `application-service` -> `8082`
 - `user-service` -> `8083`
 - `security-service` -> `8084`
 
-### 7.2 `application-service/src/main/resources/application.properties`
+### 7.2 `gateway-service/src/main/resources/application.yml`
+
+Nilai penting yang dipakai:
+
+- `server.port=8080`
+- `spring.application.name=gateway-service`
+- `spring.cloud.gateway.server.webflux.routes`
+  - `/auth/**` -> `lb://security-service`
+  - `/api/auth/**` -> `lb://security-service` dengan `StripPrefix=1`
+  - `/api/users/**` -> `lb://user-service`
+  - `/api/sensor-data/**` -> `lb://application-service`
+  - `/api/sensor-readings/**` -> `lb://microcontroller-service`
+  - `/api/device-settings/**` -> `lb://microcontroller-service`
+- `eureka.client.service-url.defaultZone=${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://localhost:8761/eureka/}`
+- `eureka.client.register-with-eureka=true`
+- `eureka.client.fetch-registry=true`
+- `eureka.instance.prefer-ip-address=true`
+- `eureka.instance.instance-id=${spring.application.name}:${server.port}`
+- `management.endpoints.web.exposure.include=health,info,prometheus`
+- `management.metrics.tags.application=${spring.application.name}`
+
+Catatan:
+
+- `gateway-service` adalah entry point HTTP utama pada port `8080`.
+- Path `/auth/**` dan `/api/auth/**` sama-sama diarahkan ke `security-service`.
+- Service lain tetap bisa diakses langsung lewat port masing-masing jika diperlukan untuk debugging.
+
+### 7.3 `application-service/src/main/resources/application.properties`
 
 Nilai penting yang dipakai:
 
@@ -449,7 +528,7 @@ Catatan:
 - `application-service` membaca Bearer token dari header `Authorization`.
 - Email untuk request `latest/history` diambil dari token, bukan dari path URL.
 
-### 7.3 `microcontroller-service/src/main/resources/application.properties`
+### 7.4 `microcontroller-service/src/main/resources/application.properties`
 
 Nilai penting yang dipakai:
 
@@ -478,7 +557,7 @@ Nilai penting yang dipakai:
 - `management.endpoints.web.exposure.include=health,info,prometheus`
 - `management.metrics.tags.application=${spring.application.name}`
 
-### 7.4 `eureka-server/src/main/resources/application.properties`
+### 7.5 `eureka-server/src/main/resources/application.properties`
 
 Nilai penting yang dipakai:
 
@@ -490,7 +569,7 @@ Nilai penting yang dipakai:
 - `management.endpoints.web.exposure.include=health,info,prometheus`
 - `management.metrics.tags.application=${spring.application.name}`
 
-### 7.5 `user-service/src/main/resources/application.properties`
+### 7.6 `user-service/src/main/resources/application.properties`
 
 Nilai penting yang dipakai:
 
@@ -512,7 +591,7 @@ Nilai penting yang dipakai:
 - `management.endpoints.web.exposure.include=health,info,prometheus`
 - `management.metrics.tags.application=${spring.application.name}`
 
-### 7.6 `security-service/src/main/resources/application.properties`
+### 7.7 `security-service/src/main/resources/application.properties`
 
 Nilai penting yang dipakai:
 
@@ -560,14 +639,14 @@ Nilai penting yang dipakai:
 4. Client melakukan login ke `security-service`.
 5. `security-service` mengambil user dari `user-service`, memvalidasi password, lalu mengembalikan JWT.
 6. JWT dipakai client saat memanggil endpoint `latest/history` di `application-service`.
-7. Jika client lupa password, client dapat memanggil `GET /auth/exists` untuk cek email dan `PUT /auth/reset-password` untuk memperbarui password.
+7. Client dapat memanggil `GET /auth/exists` dan `PUT /auth/reset-password` lewat `gateway-service` pada port `8080`, atau langsung ke `security-service` pada port `8084` untuk debugging.
 8. `security-service` akan meneruskan password baru yang sudah di-encode ke `user-service` melalui endpoint internal `PUT /api/users/update-password`.
 
 ### 8.4 Device settings
 
 1. Client login ke `application-service`.
 2. `application-service` mengambil email dari JWT.
-3. Client mengakses `GET /api/sensor-data/device-settings` untuk melihat daftar device milik email tersebut.
+3. Client mengakses `GET /api/sensor-data/device-settings` lewat `gateway-service` atau langsung ke `application-service` untuk melihat daftar device milik email tersebut.
 4. Saat client menyimpan atau memperbarui device settings, `application-service` meneruskan email, address, dan `soil_types` ke `user-service`.
 5. `user-service` menyimpan data ke tabel `device_settings` dengan `address` yang unik.
 6. Saat ESP32 atau MQTT client melakukan subscribe, RabbitMQ MQTT plugin akan membuat queue subscription dengan prefix `mqtt-subscription-` secara otomatis.
@@ -575,7 +654,7 @@ Nilai penting yang dipakai:
 
 ### 8.5 Manual command
 
-1. Client mengirim `POST /api/sensor-data/command` ke `application-service`.
+1. Client mengirim `POST /api/sensor-data/command` ke `gateway-service` atau langsung ke `application-service`.
 2. Request JSON harus memuat `address`, `command`, `duration`, dan `pot_index`.
 3. `application-service` memvalidasi token Bearer, mengekstrak email dari JWT, lalu memastikan email peminta adalah pemilik `address`.
 4. `address` dinormalisasi ke format uppercase untuk validasi ownership, lalu format MAC untuk routing key dibuat tanpa tanda titik dua.
@@ -718,7 +797,42 @@ Jika Anda memakai XAMPP lokal, pastikan database `user_service_db` sudah tersedi
 
 ## 11. Endpoint API
 
-## 11.1 `microcontroller-service`
+## 11.1 `gateway-service`
+
+Base URL:
+
+```text
+http://localhost:8080
+```
+
+Gateway ini meneruskan request ke service tujuan sesuai route berikut:
+
+- `/auth/**` -> `security-service`
+- `/api/auth/**` -> `security-service`
+- `/api/users/**` -> `user-service`
+- `/api/sensor-data/**` -> `application-service`
+- `/api/sensor-readings/**` -> `microcontroller-service`
+- `/api/device-settings/**` -> `microcontroller-service`
+
+Contoh endpoint yang sekarang dapat dipakai lewat gateway:
+
+- `http://localhost:8080/api/sensor-readings`
+- `http://localhost:8080/api/device-settings/24:0A:C4:82:7D:60`
+- `http://localhost:8080/api/sensor-data/device-settings`
+- `http://localhost:8080/api/sensor-data/command`
+- `http://localhost:8080/api/sensor-data/latest`
+- `http://localhost:8080/api/sensor-data/history?limit=5`
+- `http://localhost:8080/auth/register`
+- `http://localhost:8080/auth/login`
+- `http://localhost:8080/auth/exists?email=decalyps@gmail.com`
+- `http://localhost:8080/auth/reset-password`
+
+Catatan:
+
+- Untuk debugging, endpoint service lama masih tetap tersedia di port asli masing-masing.
+- `gateway-service` hanya meneruskan request, bukan menyimpan data sendiri.
+
+## 11.2 `microcontroller-service`
 
 Base URL:
 
@@ -830,7 +944,7 @@ Catatan:
 - Response memakai field `soil_types`.
 - Endpoint ini mengambil data dari `user-service` melalui `DeviceSettingsService`.
 
-## 11.2 `application-service`
+## 11.3 `application-service`
 
 Base URL:
 
@@ -1018,7 +1132,7 @@ Catatan:
 - Command manual ini tidak lewat microcontroller-service lagi.
 - microcontroller-service hanya menangani data sensor dan device settings, bukan command siram manual.
 
-## 11.3 `user-service`
+## 11.4 `user-service`
 
 Base URL:
 
@@ -1158,7 +1272,7 @@ Catatan:
 
 - Endpoint ini dipakai internal oleh `application-service` untuk menampilkan daftar device di dashboard.
 
-## 11.4 `security-service`
+## 11.5 `security-service`
 
 Base URL:
 
@@ -1247,6 +1361,7 @@ Catatan:
 `docker-compose.yml` saat ini menjalankan service berikut:
 
 - `eureka-server`
+- `gateway-service`
 - `verdant-mysql`
 - `rabbitmq`
 - `microcontroller-service`
@@ -1262,6 +1377,7 @@ Catatan:
 ### 12.1 Port di Docker
 
 - Eureka -> `8761`
+- Gateway -> `8080`
 - MySQL -> `3306`
 - RabbitMQ AMQP -> `5672`
 - RabbitMQ MQTT -> `1883`
@@ -1288,6 +1404,11 @@ Semua container menggunakan network:
 
 - Tidak ada environment variable khusus
 - Port internal dan eksternal memakai `8761`
+
+#### `gateway-service`
+
+- `EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/`
+- `JAVA_OPTS=-Xms128m -Xmx256m -XX:+UseSerialGC`
 
 #### `microcontroller-service`
 
@@ -1340,6 +1461,7 @@ Semua container menggunakan network:
 - Gunakan nama service container seperti `verdant-mysql`, `rabbitmq`, `user-service`, dan `verdant-logstash`.
 - Saat GUI Eureka menampilkan peringatan merah tentang self-preservation mode, itu sesuai konfigurasi saat ini karena `eureka.server.enable-self-preservation=false`.
 - `eureka-server` memakai healthcheck internal pada endpoint `/actuator/health`, dan service client menunggu status `healthy` sebelum startup.
+- `gateway-service` memakai healthcheck internal pada endpoint `/actuator/health` dan baru start setelah `eureka-server` sehat.
 - RabbitMQ container mengaktifkan plugin `rabbitmq_mqtt` saat startup.
 - ESP32 atau MQTT client dapat subscribe langsung melalui port `1883`.
 - Startup RabbitMQ di Docker juga memasang policy LVQ `^mqtt-subscription-` secara otomatis lewat [`init/rabbitmq-start.sh`](./init/rabbitmq-start.sh).
@@ -1360,7 +1482,7 @@ Semua container menggunakan network:
 
 Catatan:
 
-- `eureka-server` sudah mengekspos endpoint actuator di port `8761`, tetapi saat ini belum dimasukkan ke `prometheus.yml`.
+- `gateway-service` dan `eureka-server` sama-sama sudah mengekspos endpoint actuator, tetapi saat ini belum dimasukkan ke `prometheus.yml`.
 
 ### 13.2 Grafana
 
@@ -1402,6 +1524,9 @@ Langkah singkat:
 
 Semua service mengekspos metrics ke:
 
+- `http://localhost:8080/actuator/health`
+- `http://localhost:8080/actuator/info`
+- `http://localhost:8080/actuator/prometheus`
 - `http://localhost:8761/actuator/health`
 - `http://localhost:8761/actuator/info`
 - `http://localhost:8761/actuator/prometheus`
@@ -1435,6 +1560,8 @@ Jika ingin validasi cepat setelah menjalankan service:
 
 Project ini sekarang terdiri dari:
 
+- `eureka-server` untuk service registry dan discovery
+- `gateway-service` untuk entry point HTTP utama di port `8080`
 - `microcontroller-service` untuk menerima dan menyimpan data sensor ESP32
 - `application-service` untuk mengambil data sensor lewat RabbitMQ dan mengirim email otomatis
 - `user-service` untuk menyimpan user dan validasi email

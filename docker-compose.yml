@@ -193,6 +193,32 @@ services:
         limits:
           memory: 350M
 
+  gateway-service:
+    build:
+      context: ./gateway-service
+    container_name: gateway-service
+    restart: unless-stopped
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    environment:
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JAVA_OPTS: -Xms128m -Xmx256m -XX:+UseSerialGC
+    ports:
+      - "8080:8080"
+    networks:
+      - verdant-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 350M
+
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
