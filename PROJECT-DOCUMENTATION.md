@@ -530,7 +530,7 @@ Nilai penting yang dipakai:
 - `app.rabbitmq.exchange=sensor.exchange`
 - `app.rabbitmq.queue=sensor.request.queue`
 - `app.rabbitmq.routing-key=sensor.request`
-- `app.rabbitmq.command-exchange=device.command.exchange`
+- `app.rabbitmq.command-exchange=amq.topic`
 - `app.rabbitmq.notification-queue=sensor.notification.queue`
 - `app.rabbitmq.notification-routing-key=sensor.notification`
 - `app.mail.from=${MAIL_FROM:anasrudi048@gmail.com}`
@@ -695,7 +695,7 @@ Nilai penting yang dipakai:
 ### 9.1 Exchange
 
 - `sensor.exchange`
-- `device.command.exchange`
+- `amq.topic`
 
 ### 9.2 Queue
 
@@ -712,7 +712,7 @@ Nilai penting yang dipakai:
 ### 9.4 Perilaku penting
 
 - `sensor.exchange` adalah `DirectExchange`.
-- `device.command.exchange` adalah `TopicExchange`.
+- `amq.topic` adalah exchange default yang dipakai RabbitMQ MQTT plugin dan juga dipakai aplikasi untuk publish command manual.
 - `sensor.request.queue` dibind ke `sensor.exchange` dengan routing key `sensor.request`.
 - `sensor.notification.queue` dibind ke `sensor.exchange` dengan routing key `sensor.notification`.
 - ESP32 menerima command manual melalui MQTT subscription, bukan lagi lewat HTTP polling.

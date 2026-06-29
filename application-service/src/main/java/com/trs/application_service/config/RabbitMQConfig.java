@@ -20,7 +20,7 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public TopicExchange commandExchange(@Value("${app.rabbitmq.command-exchange:device.command.exchange}") String exchangeName) {
+    public TopicExchange commandExchange(@Value("${app.rabbitmq.command-exchange:amq.topic}") String exchangeName) {
         return new TopicExchange(exchangeName);
     }
 
