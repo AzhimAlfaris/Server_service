@@ -682,11 +682,11 @@ Nilai penting yang dipakai:
 4. `address` dinormalisasi ke format uppercase untuk validasi ownership, lalu format MAC untuk routing key dibuat tanpa tanda titik dua.
 5. `pot_index` divalidasi minimal `1` agar command hanya ditargetkan ke satu pot tanaman yang valid.
 6. Jika valid, payload command yang dikirim ke RabbitMQ tetap JSON utuh, hanya routing key-nya yang berubah menjadi:
-   - `device/command/<cleanAddress>/pot/<potIndex>`
+   - `device.command.<cleanAddress>.pot.<potIndex>`
 7. Contoh:
    - address `24:0A:C4:82:7D:64`
    - pot index `1`
-   - routing key `device/command/240AC4827D64/pot/1`
+   - routing key `device.command.240AC4827D64.pot.1`
 8. RabbitMQ MQTT plugin meneruskan command itu ke subscription queue ESP32 secara real-time.
 9. Queue subscription MQTT yang aktif akan menerima message terbaru sesuai policy LVQ sehingga jika device offline, command lama dapat tergeser oleh command terbaru.
 
@@ -707,12 +707,13 @@ Nilai penting yang dipakai:
 
 - `sensor.request`
 - `sensor.notification`
-- `device/command/<MAC tanpa ':'>/pot/<potIndex>` untuk command manual per pot
+- `device.command.<MAC tanpa ':'>.pot.<potIndex>` untuk command manual per pot
 
 ### 9.4 Perilaku penting
 
 - `sensor.exchange` adalah `DirectExchange`.
 - `amq.topic` adalah exchange default yang dipakai RabbitMQ MQTT plugin dan juga dipakai aplikasi untuk publish command manual.
+- Routing key dari sisi AMQP memakai titik, misalnya `device.command.240AC4827D64.pot.1`, sedangkan ESP32 tetap subscribe dengan topik MQTT slash, misalnya `device/command/240AC4827D64/pot/+`.
 - `sensor.request.queue` dibind ke `sensor.exchange` dengan routing key `sensor.request`.
 - `sensor.notification.queue` dibind ke `sensor.exchange` dengan routing key `sensor.notification`.
 - ESP32 menerima command manual melalui MQTT subscription, bukan lagi lewat HTTP polling.
@@ -1127,7 +1128,7 @@ Behavior:
 - Jika owner `address` tidak sama dengan email JWT, response `403 Forbidden`.
 - `pot_index` wajib ada dan nilainya minimal `1`.
 - Jika valid, payload dikirim ke RabbitMQ dengan routing key berbasis MQTT:
-  - contoh `device/command/240AC4827D64/pot/1`
+  - contoh `device.command.240AC4827D64.pot.1`
 - MQTT subscription queue milik ESP32 menggunakan pola `mqtt-subscription-<client-id>`
 - queue tersebut harus memakai LVQ policy:
   - `x-max-length = 1`
@@ -1142,7 +1143,7 @@ Response contoh:
   "message": "Perintah manual watering berhasil dikirim",
   "email": "user@example.com",
   "address": "24:0A:C4:82:7D:64",
-  "routingKey": "device/command/240AC4827D64/pot/1"
+  "routingKey": "device.command.240AC4827D64.pot.1"
 }
 ```
 

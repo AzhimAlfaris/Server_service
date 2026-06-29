@@ -36,7 +36,7 @@ public class DeviceCommandPublisherService {
     }
 
     public String buildRoutingKey(String address, Integer potIndex) {
-        return "device/command/" + normalizeAddress(address).replace(":", "") + "/pot/" + potIndex;
+        return "device.command." + normalizeAddress(address).replace(":", "") + ".pot." + potIndex;
     }
 
     private String normalizeAddress(String address) {
