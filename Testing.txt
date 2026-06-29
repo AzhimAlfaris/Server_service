@@ -110,3 +110,18 @@ http://localhost:5601
 
 Prometheus GUI
 http://localhost:9090
+
+
+
+Endpoint Berikut dapat digunakan di Port 8080:
+POST   http://localhost:8081/api/sensor-readings
+GET    http://localhost:8081/api/device-settings/24:0A:C4:82:7D:60
+POST   http://localhost:8082/api/sensor-data/device-settings
+GET    http://localhost:8082/api/sensor-data/device-settings
+POST   http://localhost:8082/api/sensor-data/command
+GET    http://localhost:8082/api/sensor-data/latest
+GET    http://localhost:8082/api/sensor-data/history?limit=5
+POST   http://localhost:8084/auth/register
+POST   http://localhost:8084/auth/login
+GET    http://localhost:8084/auth/exists?email=decalyps@gmail.com
+PUT    http://localhost:8084/auth/reset-password

@@ -1,25 +1,42 @@
 services:
-  verdant-mysql:
+  verdant-userDb:
     image: mysql:8.0
-    container_name: verdant-mysql
-    restart: unless-stopped
+    container_name: verdant-userDb
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: user_service_db
+    ports:
+      - "3307:3306" # Di-map ke port 3307 di host agar tidak bentrok jika diakses lokal
+    volumes:
+      - verdant-user-db-data:/var/lib/mysql
+      - ./init/user_service_db.sql:/docker-entrypoint-initdb.d/user_service_db.sql
+    networks:
+      - verdant-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Container 2: Database khusus untuk Microcontroller Service
+  verdant-microcontrollerDb:
+    image: mysql:8.0
+    container_name: verdant-microcontrollerDb
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: microcontroller-service-db
     ports:
-      - "3306:3306"
+      - "3308:3306" # Di-map ke port 3308 di host
     volumes:
-      - mysql_data:/var/lib/mysql
-      - ./init/microcontroller-service-db.sql:/docker-entrypoint-initdb.d/01-microcontroller-service-db.sql:ro
-      - ./init/user_service_db.sql:/docker-entrypoint-initdb.d/01-user-service-db.sql:ro
+      - verdant-micro-db-data:/var/lib/mysql
+      - ./init/microcontroller-service-db.sql:/docker-entrypoint-initdb.d/microcontroller-service-db.sql
     networks:
       - verdant-network
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -proot"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 20s
+      retries: 5
 
   rabbitmq:
     image: rabbitmq:management
@@ -57,6 +74,8 @@ services:
       - verdant-network
     depends_on:
       - logstash
+    environment:
+      LOGSTASH_HOST: verdant-logstash
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8761/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 10s
@@ -72,14 +91,14 @@ services:
     depends_on:
       eureka-server:
         condition: service_healthy
-      verdant-mysql:
+      verdant-microcontrollerDb:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
       logstash:
         condition: service_started
     environment:
-      DB_HOST: verdant-mysql
+      DB_HOST: verdant-microcontrollerDb
       DB_PORT: 3306
       DB_NAME_MICRO: microcontroller-service-db
       DB_USERNAME: root
@@ -144,12 +163,12 @@ services:
     depends_on:
       eureka-server:
         condition: service_healthy
-      verdant-mysql:
+      verdant-userDb:
         condition: service_healthy
       logstash:
         condition: service_started
     environment:
-      DB_HOST: verdant-mysql
+      DB_HOST: verdant-userDb
       DB_PORT: 3306
       DB_NAME_USER: user_service_db
       DB_USERNAME: root
@@ -204,6 +223,7 @@ services:
     environment:
       EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
       JAVA_OPTS: -Xms128m -Xmx256m -XX:+UseSerialGC
+      LOGSTASH_HOST: verdant-logstash
     ports:
       - "8080:8080"
     networks:
@@ -268,6 +288,8 @@ services:
       - "5001:5001"
       - "5002:5002"
       - "5003:5003"
+      - "5004:5004"
+      - "5005:5005" 
     networks:
       - verdant-network
     depends_on:
@@ -292,6 +314,8 @@ services:
 volumes:
   mysql_data:
   grafana-storage:
+  verdant-user-db-data:
+  verdant-micro-db-data:
   
 networks:
   verdant-network:

@@ -302,6 +302,8 @@ Log dari semua service dikirim ke Logstash lewat TCP appender:
 - `application-service` -> Logstash port `5001`
 - `user-service` -> Logstash port `5002`
 - `security-service` -> Logstash port `5003`
+- `eureka-server` -> Logstash port `5004`
+- `gateway-service` -> Logstash port `5005`
 
 Logstash kemudian meneruskan data ke Elasticsearch, dan Kibana membaca index dari Elasticsearch.
 
@@ -311,6 +313,10 @@ Logstash kemudian meneruskan data ke Elasticsearch, dan Kibana membaca index dar
 - `microcontroller-service/src/main/resources/logback-spring.xml`
 - `user-service/src/main/resources/logback-spring.xml`
 - `security-service/src/main/resources/logback-spring.xml`
+- `eureka-server/src/main/resources/logback-spring.xml`
+- `gateway-service/src/main/resources/logback-spring.xml`
+- `elk-stack/elasticsearch/config/elasticsearch.yml`
+- `elk-stack/kibana/config/kibana.yml`
 - `elk-stack/logstash/pipeline/logstash.conf`
 
 ### 5.3 Perilaku log saat ini
@@ -329,6 +335,8 @@ Index log yang dipakai oleh Logstash saat ini:
 - `application-service-logs-YYYY.MM.dd`
 - `user-service-logs-YYYY.MM.dd`
 - `security-service-logs-YYYY.MM.dd`
+- `eureka-server-logs-YYYY.MM.dd`
+- `gateway-service-logs-YYYY.MM.dd`
 
 ## 6. Struktur Project
 
@@ -337,6 +345,7 @@ Index log yang dipakai oleh Logstash saat ini:
 - `controller`
   - `SensorDataController`
 - `service`
+  - `DeviceCommandPublisherService`
   - `SensorDataClientService`
   - `SensorEmailListener`
   - `SensorEmailService`
@@ -346,6 +355,7 @@ Index log yang dipakai oleh Logstash saat ini:
   - `HttpRequestLoggingFilter`
   - `WebClientConfig`
 - `dto`
+  - `DeviceCommandMessage`
   - `DeviceCommandRequest`
   - `DeviceCommandResponse`
   - `DeviceSettingsItemResponse`
@@ -369,6 +379,7 @@ Index log yang dipakai oleh Logstash saat ini:
 - `resources`
   - `application.yml`
   - `application.properties`
+  - `logback-spring.xml`
 - `Dockerfile`
 
 ### 6.3 `microcontroller-service`
@@ -408,6 +419,10 @@ Index log yang dipakai oleh Logstash saat ini:
 ### 6.4 `eureka-server`
 
 - `EurekaServerApplication`
+- `resources`
+  - `application.properties`
+  - `logback-spring.xml`
+- `Dockerfile`
 
 ### 6.5 `user-service`
 
@@ -483,6 +498,12 @@ Nilai penting yang dipakai:
 - `eureka.instance.instance-id=${spring.application.name}:${server.port}`
 - `management.endpoints.web.exposure.include=health,info,prometheus`
 - `management.metrics.tags.application=${spring.application.name}`
+
+Tambahan file pendamping:
+
+- `gateway-service/src/main/resources/application.properties`
+  - `spring.application.name=gateway-service`
+  - `logstash.host=${LOGSTASH_HOST:localhost}`
 
 Catatan:
 
@@ -566,6 +587,7 @@ Nilai penting yang dipakai:
 - `eureka.client.register-with-eureka=false`
 - `eureka.client.fetch-registry=false`
 - `eureka.server.enable-self-preservation=false`
+- `logstash.host=${LOGSTASH_HOST:localhost}`
 - `management.endpoints.web.exposure.include=health,info,prometheus`
 - `management.metrics.tags.application=${spring.application.name}`
 
@@ -1479,10 +1501,12 @@ Semua container menggunakan network:
 - `application-service:8082/actuator/prometheus`
 - `user-service:8083/actuator/prometheus`
 - `security-service:8084/actuator/prometheus`
+- `eureka-server:8761/actuator/prometheus`
+- `gateway-service:8080/actuator/prometheus`
 
 Catatan:
 
-- `gateway-service` dan `eureka-server` sama-sama sudah mengekspos endpoint actuator, tetapi saat ini belum dimasukkan ke `prometheus.yml`.
+- `gateway-service` dan `eureka-server` sudah dimasukkan ke `prometheus.yml`, jadi metrics keduanya ikut terbaca oleh Prometheus dan tampil di Grafana.
 
 ### 13.2 Grafana
 
@@ -1504,12 +1528,14 @@ Log aplikasi yang dikirim oleh semua service akan muncul di Kibana setelah masuk
 
 #### Data view Kibana
 
-Buat empat data view atau index pattern berikut:
+Buat enam data view atau index pattern berikut:
 
 - `microcontroller-service-logs-*`
 - `application-service-logs-*`
 - `user-service-logs-*`
 - `security-service-logs-*`
+- `eureka-server-logs-*`
+- `gateway-service-logs-*`
 
 Langkah singkat:
 
