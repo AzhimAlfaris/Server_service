@@ -10,11 +10,11 @@ spring:
         webflux:
           routes:
             - id: security-service-auth-route
-              uri: lb://security-service
+              uri: http://security-service:8084
               predicates:
                 - Path=/auth/**
             - id: security-service-api-auth-route
-              uri: lb://security-service
+              uri: http://security-service:8084
               predicates:
                 - Path=/api/auth/**
               filters:

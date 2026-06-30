@@ -188,6 +188,12 @@ services:
       - "8083:8083"
     networks:
       - verdant-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -202,13 +208,14 @@ services:
       eureka-server:
         condition: service_healthy
       user-service:
-        condition: service_started
+        condition: service_healthy
       logstash:
         condition: service_started
     environment:
       EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
+      USER_SERVICE_BASE_URL: http://user-service:8083
       LOGSTASH_HOST: verdant-logstash
       JAVA_OPTS: -Xms128m -Xmx256m -XX:+UseSerialGC
       TZ: Asia/Jakarta
@@ -216,6 +223,12 @@ services:
       - "8084:8084"
     networks:
       - verdant-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -228,6 +241,8 @@ services:
     restart: unless-stopped
     depends_on:
       eureka-server:
+        condition: service_healthy
+      security-service:
         condition: service_healthy
     environment:
       EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
