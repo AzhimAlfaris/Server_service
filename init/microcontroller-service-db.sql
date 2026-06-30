@@ -94,6 +94,10 @@ ALTER TABLE `sensor_readings`
 --
 ALTER TABLE `pot_details`
   ADD CONSTRAINT `FK94pe7kdf7d38arl43xh376wkx` FOREIGN KEY (`reading_id`) REFERENCES `sensor_readings` (`id`);
+
+CREATE USER IF NOT EXISTS 'verdant_micro'@'%' IDENTIFIED BY 'VerdantMicro123!';
+GRANT ALL PRIVILEGES ON `microcontroller-service-db`.* TO 'verdant_micro'@'%';
+FLUSH PRIVILEGES;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

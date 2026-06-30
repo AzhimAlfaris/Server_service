@@ -78,6 +78,10 @@ ALTER TABLE `users`
 --
 ALTER TABLE `device_settings`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+
+CREATE USER IF NOT EXISTS 'verdant_user'@'%' IDENTIFIED BY 'VerdantUser123!';
+GRANT ALL PRIVILEGES ON `user_service_db`.* TO 'verdant_user'@'%';
+FLUSH PRIVILEGES;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
